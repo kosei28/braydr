@@ -1,7 +1,20 @@
-# Braydr
-
-コーディングエージェントとのやり取りを、Slack 風のタイムラインとスレッドで行う macOS アプリ。
-エージェントの実行は [herdr-core](https://github.com/herdrdev/herdr-core) に任せる。
+<h1>
+<p align="center">
+  <img src="design/exports/app-icon.png" alt="" width="128">
+  <br>Braydr
+</p>
+</h1>
+<p align="center">
+  コーディングエージェントとのやり取りを、Slack 風のタイムラインとスレッドで行う macOS アプリ。
+  <br />
+  エージェントの実行は <a href="https://github.com/herdrdev/herdr-core">herdr-core</a> に任せる。
+  <br />
+  <a href="#使い方">使い方</a>
+  ·
+  <a href="#文書">文書</a>
+  ·
+  <a href="#開発">開発</a>
+</p>
 
 ![チャンネルのタイムラインと右シートのスレッド](docs/images/thread.png)
 

@@ -5,7 +5,8 @@ cd "$(dirname "$0")/.."
 cargo build --release -p braydr-app -p braydr-mcp
 app=target/release/Braydr.app
 rm -rf "$app"
-mkdir -p "$app/Contents/MacOS"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp crates/braydr-app/assets/app/AppIcon.icns "$app/Contents/Resources/"
 cp target/release/braydr target/release/braydr-mcp "$app/Contents/MacOS/"
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -16,6 +17,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key><string>Braydr</string>
     <key>CFBundleIdentifier</key><string>dev.braydr.app</string>
     <key>CFBundleExecutable</key><string>braydr</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
     <key>CFBundleVersion</key><string>1</string>
