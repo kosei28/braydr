@@ -157,6 +157,14 @@ impl Workspace {
             self.revision = revision;
             self.announce(window, cx);
             self.reload(cx);
+            // With no unresolved threads left, the button that opened the list is gone too.
+            if self
+                .overlay
+                .as_ref()
+                .is_some_and(Overlay::is_empty_unresolved)
+            {
+                self.close_overlay(window, cx);
+            }
         }
         let silent = self
             .selected
@@ -1050,14 +1058,7 @@ impl Workspace {
                     .flex()
                     .items_center()
                     .gap(px(4.))
-                    .child(
-                        ui::icon_button("open-search", "search", theme::ink2())
-                            .on_mouse_down(MouseButton::Left, stop_drag)
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.open_search(window, cx)),
-                            ),
-                    )
-                    .child(
+                    .children((row.unresolved > 0).then(|| {
                         div()
                             .id("open-unresolved")
                             .h(px(28.))
@@ -1073,7 +1074,14 @@ impl Workspace {
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.open_unresolved(window, cx)),
                             )
-                            .child(format!("未解決 {}", row.unresolved)),
+                            .child(format!("未解決 {}", row.unresolved))
+                    }))
+                    .child(
+                        ui::icon_button("open-search", "search", theme::ink2())
+                            .on_mouse_down(MouseButton::Left, stop_drag)
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.open_search(window, cx)),
+                            ),
                     ),
             )
     }

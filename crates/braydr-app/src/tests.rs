@@ -318,6 +318,36 @@ fn a_threads_parent_scrolls_with_it_outside_its_read_position(cx: &mut TestAppCo
 }
 
 #[gpui_kit::test]
+fn the_unresolved_list_closes_when_nothing_is_left(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let thread_id = {
+        let mut store = rt.store();
+        let parent = store.user_post_main(&channel, "親").unwrap();
+        store
+            .user_reply(&channel, &parent.message_id, "返信")
+            .unwrap()
+            .thread
+            .thread_id
+    };
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, cx| {
+        view.update(cx, |this, cx| this.open_unresolved(window, cx));
+    });
+    cx.run_until_parked();
+    poll(cx);
+    view.read_with(cx, |this, _| assert!(this.overlay.is_some()));
+    rt.store().user_resolve(&channel, &thread_id).unwrap();
+    rt.bump();
+    poll(cx);
+    view.read_with(cx, |this, _| assert!(this.overlay.is_none()));
+}
+
+#[gpui_kit::test]
 fn copying_shows_a_check_for_a_moment(cx: &mut TestAppContext) {
     let rt = runtime();
     rt.store().create_channel("c", &launch()).unwrap();

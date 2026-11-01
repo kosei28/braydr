@@ -133,6 +133,12 @@ pub enum Overlay {
     Session(SessionDialog),
 }
 
+impl Overlay {
+    pub fn is_empty_unresolved(&self) -> bool {
+        matches!(self, Overlay::Unresolved(panel) if panel.threads.is_empty())
+    }
+}
+
 pub fn tilde(path: &str) -> String {
     match std::env::var("HOME") {
         Ok(home) if path.starts_with(&home) => format!("~{}", &path[home.len()..]),
@@ -591,7 +597,8 @@ impl Workspace {
                     ),
             );
         }
-        let right = 8. + if self.pane.is_some() { 424. } else { 0. } + 12.;
+        // Under the button, which has the search icon on its right.
+        let right = 8. + if self.pane.is_some() { 424. } else { 0. } + 12. + 32.;
         ui::floating(14.)
             .absolute()
             .top(px(48.))
