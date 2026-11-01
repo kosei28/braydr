@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use braydr_core::launch::in_user_shell;
 use braydr_core::*;
-use braydr_herdr::{Core, Error, Result, RunSpec, Terminal};
+use braydr_herdr::{Core, Error, Result, RunSpec, Status, Terminal};
 use braydr_ipc::{Request, Response};
 use braydr_runtime::{Runtime, SessionError, SessionState};
 use braydr_store::Store;
@@ -42,7 +42,20 @@ fn terminal(
         exit_code: None,
         labels,
         created_ms,
+        status: None,
     }
+}
+
+fn report_status(e: &Env, ch: &str, word: Option<&str>) {
+    let address = e.rt.store().channel(ch).unwrap().session_id.unwrap();
+    e.core
+        .live
+        .lock()
+        .unwrap()
+        .get_mut(&address)
+        .unwrap()
+        .status = word.map(|word| Status::Word(word.to_owned()));
+    e.rt.refresh_sessions().unwrap();
 }
 
 impl Core for Fake {
@@ -349,6 +362,51 @@ fn nudges_wait_then_repeat_until_resolved() {
 }
 
 #[test]
+fn nudges_count_from_when_the_agent_stopped_working() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    session_ready(&e, &ch);
+    e.rt.post_main(&ch, "依頼").unwrap();
+    wait_sent(&e.core, 1);
+    let interval = 1000;
+    let nudges = |e: &_| -> usize {
+        let e: &Env = e;
+        e.core
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, text)| text.starts_with("[braydr] nudge"))
+            .count()
+    };
+    let wait = |e: &Env, ms: i64| {
+        e.clock.fetch_add(ms, Ordering::SeqCst);
+        e.rt.tick(interval).unwrap();
+    };
+
+    report_status(&e, &ch, Some("working"));
+    for _ in 0..5 {
+        wait(&e, interval);
+    }
+    assert_eq!(nudges(&e), 0, "a working agent is left alone");
+
+    report_status(&e, &ch, Some("idle"));
+    wait(&e, 0);
+    assert_eq!(nudges(&e), 0, "not as soon as it stops");
+    wait(&e, interval - 1);
+    assert_eq!(nudges(&e), 0);
+    wait(&e, 1);
+    assert_eq!(nudges(&e), 1, "the interval after it stopped");
+
+    report_status(&e, &ch, Some("blocked"));
+    for _ in 0..5 {
+        wait(&e, interval);
+    }
+    assert_eq!(nudges(&e), 1, "a nudge would answer the prompt");
+}
+
+#[test]
 fn no_nudge_to_a_stopped_session() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
@@ -360,45 +418,6 @@ fn no_nudge_to_a_stopped_session() {
     e.clock.fetch_add(10, Ordering::SeqCst);
     e.rt.tick(1).unwrap();
     assert_eq!(e.core.sent.lock().unwrap().len(), 1);
-}
-
-/// The default interval between nudges, which is also when silence is shown.
-const FIVE_MINUTES: i64 = 5 * 60 * 1000;
-
-#[test]
-fn silence_follows_the_nudge_interval() {
-    let e = env();
-    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
-    let ch = channel.channel_id;
-    let mut settings = e.rt.store().settings().unwrap();
-    settings.nudge_minutes = 1;
-    e.rt.store().save_settings(&settings).unwrap();
-    e.clock.fetch_add(59_999, Ordering::SeqCst);
-    assert!(!e.rt.is_silent(&ch));
-    e.clock.fetch_add(1, Ordering::SeqCst);
-    assert!(e.rt.is_silent(&ch));
-}
-
-#[test]
-fn silence_ends_with_any_tool_call() {
-    let e = env();
-    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
-    let ch = channel.channel_id;
-    assert!(!e.rt.is_silent(&ch));
-    e.clock.fetch_add(FIVE_MINUTES, Ordering::SeqCst);
-    assert!(e.rt.is_silent(&ch));
-    let response = e.rt.handle_tool(&Request {
-        channel: Some(ch.clone()),
-        tool: "braydr_channel_get".into(),
-        args: json!({}),
-    });
-    assert!(matches!(response, Response::Result(_)));
-    assert!(!e.rt.is_silent(&ch));
-    e.rt.post_main(&ch, "次").unwrap();
-    e.clock.fetch_add(FIVE_MINUTES - 1, Ordering::SeqCst);
-    assert!(!e.rt.is_silent(&ch));
-    e.clock.fetch_add(1, Ordering::SeqCst);
-    assert!(e.rt.is_silent(&ch));
 }
 
 /// Claude Code's trust prompt defaults to "No, exit", so one Enter ends the session.

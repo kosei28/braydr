@@ -53,12 +53,53 @@ pub struct Terminal {
     pub labels: BTreeMap<String, String>,
     #[serde(default)]
     pub created_ms: i64,
+    #[serde(default)]
+    pub status: Option<Status>,
 }
 
 impl Terminal {
     pub fn is_live(&self) -> bool {
         self.state == "live"
     }
+
+    pub fn activity(&self) -> Activity {
+        match self.status.as_ref().map(Status::word) {
+            None => Activity::Unknown,
+            Some("working") => Activity::Working,
+            Some("blocked") => Activity::Blocked,
+            Some(_) => Activity::Stopped,
+        }
+    }
+}
+
+/// The program's own word for what it is doing. `terminal.get` sends a record, and the list form
+/// a bare word.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(untagged)]
+pub enum Status {
+    Record { state: String },
+    Word(String),
+}
+
+impl Status {
+    fn word(&self) -> &str {
+        match self {
+            Status::Record { state } | Status::Word(state) => state,
+        }
+    }
+}
+
+/// What a live program is doing, as far as it reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Activity {
+    /// It has not said, which may be because it cannot, or has not got that far.
+    #[default]
+    Unknown,
+    Working,
+    /// Waiting for someone to answer a permission, question, or sign-in prompt.
+    Blocked,
+    /// Idle, done, or failed: its turn is over.
+    Stopped,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -299,6 +340,37 @@ impl Events {
                 Some("missed") => return Ok(Event::Missed(parse(params["terminals"].clone())?)),
                 _ => {}
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_status_in_both_forms() {
+        let parse = |status: &str| -> Terminal {
+            serde_json::from_str(&format!(
+                r#"{{"address":"t1","state":"live","status":{status}}}"#
+            ))
+            .unwrap()
+        };
+        assert_eq!(parse("null").activity(), Activity::Unknown);
+        assert_eq!(
+            parse(r#"{"app":"claude-code","msg":"x","state":"working"}"#).activity(),
+            Activity::Working
+        );
+        assert_eq!(parse(r#""working""#).activity(), Activity::Working);
+        assert_eq!(
+            parse(r#"{"state":"blocked"}"#).activity(),
+            Activity::Blocked
+        );
+        for word in ["idle", "done", "error"] {
+            assert_eq!(
+                parse(&format!(r#"{{"state":"{word}"}}"#)).activity(),
+                Activity::Stopped
+            );
         }
     }
 }

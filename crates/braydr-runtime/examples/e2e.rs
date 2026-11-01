@@ -72,10 +72,7 @@ fn main() {
     }
 
     wait_for("the session calls a tool", 90, || {
-        !rt.is_silent(&ch) && rt.store().channel_summary(&ch).is_ok() && {
-            // `is_silent` needs the nudge interval to turn on, so look for the call in the agent's screen as well.
-            screen(&address).contains("braydr")
-        }
+        rt.store().channel_summary(&ch).is_ok() && screen(&address).contains("braydr")
     });
     let agent_main = |rt: &Runtime<Client>| {
         rt.store()

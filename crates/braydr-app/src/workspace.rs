@@ -6,16 +6,17 @@ use std::time::Duration;
 use braydr_core::notify::{self, View};
 use braydr_core::text::head;
 use braydr_core::{Author, LaunchConfig, Message, StateAction, Thread, validate};
+use braydr_herdr::Activity;
 use braydr_runtime::SessionState;
 use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaState};
 use gpui_kit::component::text::TextView;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle, DispatchPhase, Div, Entity,
-    FocusHandle, Focusable as _, FontWeight, InteractiveElement as _, IntoElement, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Render, ScrollHandle,
-    SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, canvas,
-    div, list, px,
+    Animation, AnimationExt as _, AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle,
+    DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight, InteractiveElement as _,
+    IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
+    Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
+    SystemNotification, Transformation, Window, canvas, div, list, percentage, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
@@ -49,6 +50,7 @@ pub struct ChannelRow {
     pub channel: braydr_core::Channel,
     pub state: SessionState,
     pub stopped: bool,
+    blocked: bool,
     pub start_failed: bool,
     unresolved: i64,
     main_unread: bool,
@@ -88,7 +90,6 @@ pub struct Workspace {
     resize: Option<Resize>,
     pub pointer_down: bool,
     bounds_changed: bool,
-    silent: bool,
     highlight: Option<String>,
     pub copied: Option<String>,
     copy_generation: u64,
@@ -118,7 +119,6 @@ impl Workspace {
             resize: None,
             pointer_down: false,
             bounds_changed: false,
-            silent: false,
             highlight: None,
             copied: None,
             copy_generation: 0,
@@ -191,14 +191,6 @@ impl Workspace {
                 self.close_overlay(window, cx);
             }
         }
-        let silent = self
-            .selected
-            .as_ref()
-            .is_some_and(|id| self.rt.is_silent(id));
-        if silent != self.silent {
-            self.silent = silent;
-            cx.notify();
-        }
     }
 
     pub fn selected_row(&self) -> Option<&ChannelRow> {
@@ -224,6 +216,7 @@ impl Workspace {
                 let state = self.rt.cached_state(&id);
                 ChannelRow {
                     stopped: state != SessionState::Running,
+                    blocked: self.rt.activity(&id) == Activity::Blocked,
                     start_failed: self.rt.start_failed(&id),
                     state,
                     channel,
@@ -660,14 +653,8 @@ impl Workspace {
             let id = row.channel.channel_id.clone();
             let selected = self.selected.as_deref() == Some(id.as_str());
             let glyph = div().size(px(16.)).flex().items_center().justify_center();
-            let glyph = if row.stopped {
-                glyph.child(
-                    div()
-                        .size(px(9.))
-                        .rounded_full()
-                        .border_1()
-                        .border_color(theme::warn()),
-                )
+            let glyph = if row.stopped || row.blocked {
+                glyph.child(div().size(px(7.)).rounded_full().bg(theme::warn()))
             } else if row.main_unread {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::unread()))
             } else {
@@ -1053,22 +1040,46 @@ impl Workspace {
                             )
                             .child(ui::icon("chevron-down", 14., theme::ink3())),
                     )
-                    .children(row.stopped.then(|| {
+                    .children((row.stopped || row.blocked).then(|| {
                         div()
                             .flex()
                             .items_center()
                             .gap(px(6.))
                             .text_size(px(12.))
                             .text_color(theme::warn())
-                            .child(
+                            .child(div().size(px(7.)).rounded_full().bg(theme::warn()))
+                            .child(if row.stopped {
+                                "停止中"
+                            } else {
+                                "確認待ち"
+                            })
+                    }))
+                    .children(
+                        (self.rt.activity(&row.channel.channel_id) == Activity::Working).then(
+                            || {
                                 div()
-                                    .size(px(9.))
-                                    .rounded_full()
-                                    .border_1()
-                                    .border_color(theme::warn()),
-                            )
-                            .child("停止中")
-                    })),
+                                    .flex()
+                                    .flex_none()
+                                    .items_center()
+                                    .gap(px(6.))
+                                    .text_size(px(12.))
+                                    .text_color(theme::ink3())
+                                    .child(
+                                        ui::icon("loader-circle", 12., theme::ink3())
+                                            .with_animation(
+                                                "running-spinner",
+                                                Animation::new(Duration::from_secs(1)).repeat(),
+                                                |icon, delta| {
+                                                    icon.with_transformation(
+                                                        Transformation::rotate(percentage(delta)),
+                                                    )
+                                                },
+                                            ),
+                                    )
+                                    .child("実行中")
+                            },
+                        ),
+                    ),
             )
             .child(
                 div()
@@ -1188,7 +1199,7 @@ impl Workspace {
     }
 
     fn render_banner(&self, row: &ChannelRow, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let base = |background: gpui_kit::Rgba, text: &'static str| {
+        let base = |text: &'static str| {
             div()
                 .min_h(px(40.))
                 .pl(px(14.))
@@ -1199,7 +1210,7 @@ impl Workspace {
                 .justify_between()
                 .gap(px(12.))
                 .rounded(px(10.))
-                .bg(background)
+                .bg(theme::warn_tint())
                 .text_size(px(13.))
                 .text_color(theme::ink())
                 .child(text)
@@ -1239,12 +1250,12 @@ impl Workspace {
                 )
             };
             return Some(
-                base(theme::warn_tint(), "セッションが停止しています")
+                base("セッションが停止しています")
                     .child(button)
                     .into_any_element(),
             );
         }
-        if self.silent {
+        if row.blocked {
             let attach = row.channel.session_id.as_ref().map(|session| {
                 let command = format!("hc attach {session}");
                 let copied = command.clone();
@@ -1267,7 +1278,7 @@ impl Workspace {
                     }))
             });
             return Some(
-                base(theme::tint(), "しばらくエージェントの応答がありません")
+                base("エージェントが確認を待っています")
                     .children(attach)
                     .into_any_element(),
             );

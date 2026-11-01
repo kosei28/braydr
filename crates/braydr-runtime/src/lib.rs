@@ -8,9 +8,9 @@ use std::time::Duration;
 
 use braydr_core::launch::{ENV_CHANNEL_ID, in_user_shell, shell_line};
 use braydr_core::notification::{self, NudgeMain, NudgeThread};
-use braydr_core::schedule::{NudgeTimer, ResponseWatch};
+use braydr_core::schedule::NudgeTimer;
 use braydr_core::*;
-use braydr_herdr::{Core, RunSpec, Terminal};
+use braydr_herdr::{Activity, Core, RunSpec, Terminal};
 use braydr_ipc::{Request, Response, server, views};
 use braydr_store::{Store, UserReply};
 
@@ -51,7 +51,6 @@ pub enum SessionState {
 struct ChannelRuntime {
     outbox: Option<Sender<String>>,
     nudge: NudgeTimer,
-    watch: ResponseWatch,
 }
 
 const STOPPED: SessionState = SessionState::Stopped {
@@ -72,6 +71,7 @@ pub struct Runtime<C: Core + 'static> {
     retry_delay: Duration,
     revision: AtomicU64,
     states: Mutex<HashMap<String, SessionState>>,
+    activities: Mutex<HashMap<String, Activity>>,
     start_failed: Mutex<HashSet<String>>,
 }
 
@@ -93,6 +93,7 @@ impl<C: Core + 'static> Runtime<C> {
             retry_delay: Duration::from_millis(500),
             revision: AtomicU64::new(1),
             states: Mutex::new(HashMap::new()),
+            activities: Mutex::new(HashMap::new()),
             start_failed: Mutex::new(HashSet::new()),
         })
     }
@@ -169,8 +170,6 @@ impl<C: Core + 'static> Runtime<C> {
             .expect("the start_failed lock is not poisoned")
             .remove(channel_id);
         self.set_cached_state(channel_id, SessionState::Running);
-        let now = self.now();
-        self.with_channel(channel_id, |state| state.watch.expect(now));
         Ok(terminal)
     }
 
@@ -195,6 +194,16 @@ impl<C: Core + 'static> Runtime<C> {
             .unwrap_or(STOPPED)
     }
 
+    /// What the session last said it was doing. Safe to call while rendering.
+    pub fn activity(&self, channel_id: &str) -> Activity {
+        self.activities
+            .lock()
+            .expect("the activities lock is not poisoned")
+            .get(channel_id)
+            .copied()
+            .unwrap_or_default()
+    }
+
     /// Whether the last attempt to start this channel's session failed.
     pub fn start_failed(&self, channel_id: &str) -> bool {
         self.start_failed
@@ -207,17 +216,25 @@ impl<C: Core + 'static> Runtime<C> {
     pub fn refresh_sessions(&self) -> SessionResult<()> {
         let channels = self.store().channels()?;
         for channel in channels {
-            let state = self
-                .session_state(&channel.channel_id)
-                .unwrap_or_else(|error| {
-                    tracing::warn!(
-                        channel_id = channel.channel_id,
-                        ?error,
-                        "cannot read the session"
-                    );
-                    STOPPED
-                });
+            let (state, activity) =
+                self.read_session(&channel.channel_id)
+                    .unwrap_or_else(|error| {
+                        tracing::warn!(
+                            channel_id = channel.channel_id,
+                            ?error,
+                            "cannot read the session"
+                        );
+                        (STOPPED, Activity::Unknown)
+                    });
             self.set_cached_state(&channel.channel_id, state);
+            let previous = self
+                .activities
+                .lock()
+                .expect("the activities lock is not poisoned")
+                .insert(channel.channel_id.clone(), activity);
+            if previous.unwrap_or_default() != activity {
+                self.bump();
+            }
         }
         Ok(())
     }
@@ -234,21 +251,30 @@ impl<C: Core + 'static> Runtime<C> {
             }
         }
         self.store().prepare_new_session(channel_id, launch)?;
-        self.with_channel(channel_id, |state| state.watch.tool_called());
         self.start(channel_id)
     }
 
     pub fn session_state(&self, channel_id: &str) -> SessionResult<SessionState> {
+        Ok(self.read_session(channel_id)?.0)
+    }
+
+    fn read_session(&self, channel_id: &str) -> SessionResult<(SessionState, Activity)> {
         let Some(address) = self.store().channel(channel_id)?.session_id else {
-            return Ok(STOPPED);
+            return Ok((STOPPED, Activity::Unknown));
         };
         match self.core.get(&address) {
-            Ok(terminal) if terminal.is_live() => Ok(SessionState::Running),
-            Ok(terminal) => Ok(SessionState::Stopped {
-                reason: terminal.reason,
-                exit_code: terminal.exit_code,
-            }),
-            Err(error) if error.kind() == Some("not_found") => Ok(STOPPED),
+            Ok(terminal) if terminal.is_live() => {
+                let activity = terminal.activity();
+                Ok((SessionState::Running, activity))
+            }
+            Ok(terminal) => Ok((
+                SessionState::Stopped {
+                    reason: terminal.reason,
+                    exit_code: terminal.exit_code,
+                },
+                Activity::Unknown,
+            )),
+            Err(error) if error.kind() == Some("not_found") => Ok((STOPPED, Activity::Unknown)),
             Err(error) => Err(error.into()),
         }
     }
@@ -320,10 +346,8 @@ impl<C: Core + 'static> Runtime<C> {
     /// Per-channel queue, so notifications keep posting order. Sends skip a stopped session; the
     /// next session reads the history when it starts.
     fn deliver(self: &Arc<Self>, channel_id: &str, text: String) {
-        let now = self.now();
         let this = self.clone();
         self.with_channel(channel_id, |state| {
-            state.watch.expect(now);
             let outbox = state
                 .outbox
                 .get_or_insert_with(|| this.spawn_outbox(channel_id.to_owned()));
@@ -376,7 +400,10 @@ impl<C: Core + 'static> Runtime<C> {
 
     // Periodic work
 
-    /// Sends nudges that are due. Call this periodically.
+    /// Sends nudges that are due. Call this periodically, after `refresh_sessions`.
+    ///
+    /// The interval runs from when the agent stopped working. A working agent needs no reminder,
+    /// and a blocked one would take the nudge as the answer to its prompt.
     pub fn tick(&self, interval_ms: i64) -> SessionResult<()> {
         let now = self.now();
         let channels = self.store().channels()?;
@@ -395,7 +422,11 @@ impl<C: Core + 'static> Runtime<C> {
                     store.main_awaiting_response(&channel.channel_id)?,
                 )
             };
-            let condition = !threads.is_empty() || main.is_some();
+            let busy = matches!(
+                self.activity(&channel.channel_id),
+                Activity::Working | Activity::Blocked
+            );
+            let condition = !busy && (!threads.is_empty() || main.is_some());
             let due = self.with_channel(&channel.channel_id, |state| {
                 state.nudge.tick(condition, now, interval_ms)
             });
@@ -425,19 +456,11 @@ impl<C: Core + 'static> Runtime<C> {
         Ok(())
     }
 
-    /// Whether to show "no response for a while" (`docs/product-spec.md` 4.6).
-    pub fn is_silent(&self, channel_id: &str) -> bool {
-        let now = self.now();
-        let after_ms = self.store().settings().unwrap_or_default().nudge_minutes * 60 * 1000;
-        self.with_channel(channel_id, |state| state.watch.silent(now, after_ms))
-    }
-
     // Tools
 
     /// Serves agent tools, noting that the session responded.
     pub fn handle_tool(&self, request: &Request) -> Response {
         if let Some(channel_id) = request.channel.as_deref() {
-            self.with_channel(channel_id, |state| state.watch.tool_called());
             // Before the tool reads anything: a post the send skipped is then one this read sees.
             if let Err(error) = self.store().mark_session_responded(channel_id) {
                 tracing::warn!(channel_id, %error, "cannot record the response");

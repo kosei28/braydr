@@ -78,7 +78,7 @@ crates/
 ├ braydr-core    ドメインの型と規則。GPUI と SQLite に依存しない
 ├ braydr-store   SQLite の実装。スキーマ、マイグレーション、検索
 ├ braydr-herdr   herdr-core の JSON-RPC クライアント
-├ braydr-runtime セッション、配送、再通知、応答の監視。UI に依存しない
+├ braydr-runtime セッション、配送、再通知。UI に依存しない
 ├ braydr-ipc     ツールの定義と JSON、アプリとサイドカーの間のプロトコル
 ├ braydr-mcp     サイドカーのバイナリ（rmcp + tokio）
 └ braydr-app     アプリのバイナリ（gpui-kit）
@@ -311,9 +311,8 @@ macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`
 | 状態報告 | `status` は null、`reported` は false。Claude Code は OSC 7501 を送らなかった |
 | 初めてのディレクトリ | 信頼の確認で停止した。キー入力で承認すると、続けてプロンプトが実行された |
 
-エージェントが止まる原因は確認画面、MCP やスキルの未設定など複数あり、アプリからは区別できない。
-そこで、ツールの呼び出しがないまま再通知の間隔が経ったことだけを検知し、原因は断定しない（`product-spec.md` 4.6）。
-IPC サーバーはチャンネルごとに最後のツール呼び出しの時刻を保持する。
+Claude Code のセッションは、後の確認（2026-11-02）で `status` を報告していた（`{"app":"claude-code","state":"working",...}`）。
+アプリは `status` だけを示す。エージェントが動かないときは、実行中にならないことで分かる（`product-spec.md` 4.6）。
 
 ### イベントの検証（2026-11-01、hc 0.1.16）
 
