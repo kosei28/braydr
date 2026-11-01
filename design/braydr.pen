@@ -3,6 +3,94 @@
   "children": [
     {
       "type": "text",
+      "id": "IiEbm",
+      "x": 0,
+      "y": -1312,
+      "name": "§ アプリアイコン",
+      "fill": "#18181A",
+      "content": "アプリアイコン",
+      "fontFamily": "IBM Plex Sans JP",
+      "fontSize": 40,
+      "fontWeight": "600"
+    },
+    {
+      "type": "frame",
+      "id": "uJrMd",
+      "x": 0,
+      "y": -1224,
+      "name": "アプリアイコン",
+      "children": [
+        {
+          "type": "frame",
+          "id": "rNCkn",
+          "name": "Braydr",
+          "width": 1024,
+          "height": 1024,
+          "layout": "none",
+          "children": [
+            {
+              "type": "frame",
+              "id": "wTbg2",
+              "x": 100,
+              "y": 100,
+              "name": "Tile",
+              "clip": true,
+              "width": 824,
+              "height": 824,
+              "fill": "#18181A",
+              "cornerRadius": 185,
+              "effect": {
+                "type": "shadow",
+                "shadowType": "outer",
+                "color": "#00000040",
+                "offset": {
+                  "x": 0,
+                  "y": 20
+                },
+                "blur": 60
+              },
+              "layout": "none",
+              "children": [
+                {
+                  "type": "rectangle",
+                  "cornerRadius": [
+                    56,
+                    100,
+                    100,
+                    12
+                  ],
+                  "id": "B2IUiM",
+                  "x": 222,
+                  "y": 174,
+                  "name": "Upper bubble",
+                  "fill": "#FFFFFF",
+                  "width": 300,
+                  "height": 200
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": [
+                    12,
+                    112,
+                    112,
+                    56
+                  ],
+                  "id": "lIgkj",
+                  "x": 222,
+                  "y": 394,
+                  "name": "Lower bubble",
+                  "fill": "#2F4BFF",
+                  "width": 380,
+                  "height": 256
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
       "id": "ONoLz",
       "x": 0,
       "y": 0,
