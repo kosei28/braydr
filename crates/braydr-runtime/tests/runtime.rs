@@ -248,6 +248,26 @@ fn delivery_retries_transient_errors_and_stops_on_a_dead_session() {
 }
 
 #[test]
+fn deleting_a_channel_stops_its_session_first() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    let address = e.rt.store().channel(&ch).unwrap().session_id.unwrap();
+
+    *e.core.refuse_kill.lock().unwrap() = true;
+    assert!(matches!(
+        e.rt.delete_channel(&ch),
+        Err(SessionError::StillLive)
+    ));
+    assert!(e.rt.store().channel(&ch).is_ok(), "kept");
+
+    *e.core.refuse_kill.lock().unwrap() = false;
+    e.rt.delete_channel(&ch).unwrap();
+    assert!(e.core.killed.lock().unwrap().contains(&address));
+    assert!(e.rt.store().channel(&ch).is_err());
+}
+
+#[test]
 fn new_session_stops_the_old_one_and_saves_settings() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();

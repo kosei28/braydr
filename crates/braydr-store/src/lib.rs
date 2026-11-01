@@ -267,6 +267,60 @@ impl Store {
         Ok(())
     }
 
+    /// Removes the channel and everything in it. Returns the ids of its threads.
+    pub fn delete_channel(&mut self, channel_id: &str) -> Result<Vec<String>> {
+        self.write(|tx, _| {
+            let thread_ids = {
+                let mut statement = tx
+                    .prepare("SELECT thread_id FROM threads WHERE channel_id = ?1")
+                    .db()?;
+                statement
+                    .query_map([channel_id], |row| row.get::<_, String>(0))
+                    .db()?
+                    .collect::<rusqlite::Result<Vec<_>>>()
+                    .db()?
+            };
+            // The search index has no delete trigger; it needs the old text to drop a row.
+            tx.execute(
+                "INSERT INTO messages_fts (messages_fts, rowid, text)
+                 SELECT 'delete', rowid, text FROM messages WHERE channel_id = ?1",
+                [channel_id],
+            )
+            .db()?;
+            tx.execute(
+                "DELETE FROM read_positions
+                 WHERE (scope_type = 'channel' AND scope_id = ?1)
+                    OR (scope_type = 'thread' AND scope_id IN
+                        (SELECT thread_id FROM threads WHERE channel_id = ?1))",
+                [channel_id],
+            )
+            .db()?;
+            tx.execute(
+                "DELETE FROM thread_state_events WHERE thread_id IN
+                    (SELECT thread_id FROM threads WHERE channel_id = ?1)",
+                [channel_id],
+            )
+            .db()?;
+            // Replies point at threads and threads point at their parents, so in this order.
+            tx.execute(
+                "DELETE FROM messages WHERE channel_id = ?1 AND thread_id IS NOT NULL",
+                [channel_id],
+            )
+            .db()?;
+            tx.execute("DELETE FROM threads WHERE channel_id = ?1", [channel_id])
+                .db()?;
+            tx.execute("DELETE FROM messages WHERE channel_id = ?1", [channel_id])
+                .db()?;
+            let changed = tx
+                .execute("DELETE FROM channels WHERE channel_id = ?1", [channel_id])
+                .db()?;
+            if changed == 0 {
+                return Err(Error::ChannelNotFound);
+            }
+            Ok(thread_ids)
+        })
+    }
+
     pub fn set_session(&mut self, channel_id: &str, session_id: Option<&str>) -> Result<()> {
         let changed = self
             .conn

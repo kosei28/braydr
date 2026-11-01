@@ -242,6 +242,59 @@ fn opening_a_thread_from_a_tag_shows_its_channel(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn deleting_moves_to_another_channel_then_to_the_creation_form(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let first = rt
+        .store()
+        .create_channel("一", &launch())
+        .unwrap()
+        .channel_id;
+    let second = rt
+        .store()
+        .create_channel("二", &launch())
+        .unwrap()
+        .channel_id;
+    let (view, cx) = open(cx, &rt);
+
+    for _ in 0..2 {
+        view.update_in(cx, |this, window, cx| {
+            let selected = this.selected.clone().unwrap();
+            let thread_ids = this.rt.delete_channel(&selected).unwrap();
+            this.finish_delete(&selected, &thread_ids, window, cx);
+        });
+        cx.run_until_parked();
+        view.read_with(cx, |this, _| {
+            if this.rt.store().channels().unwrap().is_empty() {
+                assert!(this.create.is_some());
+                assert!(this.selected.is_none());
+            } else {
+                let selected = this.selected.as_deref().unwrap();
+                assert!(selected == first || selected == second);
+                assert!(this.timeline.is_some());
+            }
+        });
+    }
+    assert!(rt.store().channels().unwrap().is_empty());
+}
+
+#[gpui_kit::test]
+fn a_notification_for_a_deleted_channel_opens_nothing(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let kept = rt
+        .store()
+        .create_channel("残す", &launch())
+        .unwrap()
+        .channel_id;
+    let (view, cx) = open(cx, &rt);
+    view.update_in(cx, |this, window, cx| {
+        this.open_tag("main:gone", window, cx);
+    });
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.selected.as_deref(), Some(kept.as_str()));
+    });
+}
+
+#[gpui_kit::test]
 fn with_no_channels_the_creation_form_opens_and_stays(cx: &mut TestAppContext) {
     let rt = runtime();
     let (view, cx) = open(cx, &rt);

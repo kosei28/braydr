@@ -241,17 +241,46 @@ impl<C: Core + 'static> Runtime<C> {
 
     /// `docs/product-spec.md` 8.2.
     pub fn new_session(&self, channel_id: &str, launch: &LaunchConfig) -> SessionResult<Terminal> {
-        let current = self.store().channel(channel_id)?.session_id;
-        if let Some(address) = current {
-            match self.core.kill(&address) {
-                Ok(terminal) if terminal.is_live() => return Err(SessionError::StillLive),
-                Ok(_) => {}
-                Err(error) if error.kind() == Some("not_found") => {}
-                Err(error) => return Err(error.into()),
-            }
-        }
+        self.stop_session(channel_id)?;
         self.store().prepare_new_session(channel_id, launch)?;
         self.start(channel_id)
+    }
+
+    /// Stops the session, then removes the channel. Keeps it if the session will not stop.
+    /// Returns the ids of the channel's threads.
+    pub fn delete_channel(&self, channel_id: &str) -> SessionResult<Vec<String>> {
+        self.stop_session(channel_id)?;
+        let thread_ids = self.store().delete_channel(channel_id)?;
+        self.channels
+            .lock()
+            .expect("the channels lock is not poisoned")
+            .remove(channel_id);
+        self.states
+            .lock()
+            .expect("the states lock is not poisoned")
+            .remove(channel_id);
+        self.activities
+            .lock()
+            .expect("the activities lock is not poisoned")
+            .remove(channel_id);
+        self.start_failed
+            .lock()
+            .expect("the start_failed lock is not poisoned")
+            .remove(channel_id);
+        self.bump();
+        Ok(thread_ids)
+    }
+
+    fn stop_session(&self, channel_id: &str) -> SessionResult<()> {
+        let Some(address) = self.store().channel(channel_id)?.session_id else {
+            return Ok(());
+        };
+        match self.core.kill(&address) {
+            Ok(terminal) if terminal.is_live() => Err(SessionError::StillLive),
+            Ok(_) => Ok(()),
+            Err(error) if error.kind() == Some("not_found") => Ok(()),
+            Err(error) => Err(error.into()),
+        }
     }
 
     pub fn session_state(&self, channel_id: &str) -> SessionResult<SessionState> {

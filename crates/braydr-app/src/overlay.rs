@@ -56,6 +56,13 @@ pub struct RenameDialog {
     _changes: Subscription,
 }
 
+pub struct DeleteDialog {
+    channel_id: String,
+    name: String,
+    busy: bool,
+    error: Option<String>,
+}
+
 /// The fields shared by channel creation and new sessions.
 pub struct LaunchFields {
     pub cwd: String,
@@ -130,6 +137,7 @@ pub enum Overlay {
     Unresolved(UnresolvedPanel),
     Search(SearchPanel),
     Rename(RenameDialog),
+    Delete(DeleteDialog),
     Session(SessionDialog),
 }
 
@@ -349,6 +357,52 @@ impl Workspace {
         }
     }
 
+    fn open_delete(&mut self, cx: &mut Context<Self>) {
+        let Some(row) = self.selected_row() else {
+            return;
+        };
+        self.overlay = Some(Overlay::Delete(DeleteDialog {
+            channel_id: row.channel.channel_id.clone(),
+            name: row.channel.name.clone(),
+            busy: false,
+            error: None,
+        }));
+        cx.notify();
+    }
+
+    /// Stopping the session talks to herdr-core, so it stays off the UI thread.
+    fn submit_delete(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(Overlay::Delete(dialog)) = &mut self.overlay else {
+            return;
+        };
+        if dialog.busy {
+            return;
+        }
+        dialog.busy = true;
+        dialog.error = None;
+        let channel_id = dialog.channel_id.clone();
+        let rt = self.rt.clone();
+        let deleted = channel_id.clone();
+        let task = cx.background_spawn(async move { rt.delete_channel(&deleted) });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            let _ = this.update_in(cx, |this, window, cx| match result {
+                Ok(thread_ids) => this.finish_delete(&channel_id, &thread_ids, window, cx),
+                Err(error) => {
+                    tracing::warn!(?error, "cannot delete the channel");
+                    if let Some(Overlay::Delete(dialog)) = &mut this.overlay {
+                        dialog.busy = false;
+                        dialog.error =
+                            Some("セッションを停止できないため、削除できませんでした。".to_owned());
+                    }
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
     pub fn open_session_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.selected_row() else {
             return;
@@ -439,9 +493,13 @@ impl Workspace {
             Overlay::Unresolved(panel) => self.render_unresolved(panel, cx),
             Overlay::Search(panel) => self.render_search(panel, cx),
             Overlay::Rename(dialog) => self.render_rename(dialog, cx),
+            Overlay::Delete(dialog) => self.render_delete(dialog, cx),
             Overlay::Session(dialog) => self.render_session(dialog, cx),
         };
-        let dimmed = matches!(overlay, Overlay::Rename(_) | Overlay::Session(_));
+        let dimmed = matches!(
+            overlay,
+            Overlay::Rename(_) | Overlay::Delete(_) | Overlay::Session(_)
+        );
         let mut backdrop = div().id("backdrop").absolute().inset_0().occlude();
         if dimmed {
             backdrop = backdrop.bg(theme::dim());
@@ -474,7 +532,11 @@ impl Workspace {
         let Some(row) = self.selected_row() else {
             return div().into_any_element();
         };
-        let item = |id: &'static str, icon_name: &'static str, label: &'static str| {
+        let colored_item = |id: &'static str,
+                            icon_name: &'static str,
+                            label: &'static str,
+                            text: gpui_kit::Rgba,
+                            icon: gpui_kit::Rgba| {
             div()
                 .id(id)
                 .h(px(32.))
@@ -486,9 +548,12 @@ impl Workspace {
                 .cursor_pointer()
                 .hover(|style| style.bg(theme::tint()))
                 .text_size(px(13.))
-                .text_color(theme::ink())
-                .child(ui::icon(icon_name, 14., theme::ink2()))
+                .text_color(text)
+                .child(ui::icon(icon_name, 14., icon))
                 .child(label)
+        };
+        let item = |id: &'static str, icon_name: &'static str, label: &'static str| {
+            colored_item(id, icon_name, label, theme::ink(), theme::ink2())
         };
         let reason = match &row.state {
             SessionState::Stopped { reason, exit_code }
@@ -555,6 +620,17 @@ impl Workspace {
                 item("menu-session", "rotate-ccw", "新しいセッションを開始").on_click(
                     cx.listener(|this, _, window, cx| this.open_session_dialog(window, cx)),
                 ),
+            )
+            .child(div().my(px(4.)).h(px(1.)).bg(theme::hairline()))
+            .child(
+                colored_item(
+                    "menu-delete",
+                    "trash-2",
+                    "チャンネルを削除",
+                    theme::warn(),
+                    theme::warn(),
+                )
+                .on_click(cx.listener(|this, _, _, cx| this.open_delete(cx))),
             )
             .into_any_element()
     }
@@ -780,6 +856,43 @@ impl Workspace {
                                 }
                             }),
                         )),
+                ),
+        )
+    }
+
+    fn render_delete(&self, dialog: &DeleteDialog, cx: &mut Context<Self>) -> AnyElement {
+        let description = format!(
+            "「{}」のメッセージとスレッドをすべて削除します。実行中のセッションも終了します。元に戻せません。",
+            dialog.name
+        );
+        let busy = dialog.busy;
+        centered(
+            self.dialog(360.)
+                .child(heading("チャンネルの削除"))
+                .child(
+                    div()
+                        .text_size(px(13.))
+                        .text_color(theme::ink2())
+                        .child(description),
+                )
+                .children(dialog.error.clone().map(|error| {
+                    div()
+                        .text_size(px(12.))
+                        .text_color(theme::warn())
+                        .child(error)
+                }))
+                .child(
+                    actions()
+                        .child(ui::quiet_button("delete-cancel", "キャンセル").on_click(
+                            cx.listener(|this, _, window, cx| this.close_overlay(window, cx)),
+                        ))
+                        .child(
+                            ui::primary_button("delete-confirm", "削除", !busy)
+                                .bg(theme::warn())
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.submit_delete(window, cx);
+                                })),
+                        ),
                 ),
         )
     }

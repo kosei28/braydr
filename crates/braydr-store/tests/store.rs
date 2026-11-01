@@ -334,6 +334,45 @@ fn only_unresolved_threads_count_as_unread_unresolved() {
 }
 
 #[test]
+fn deleting_a_channel_removes_everything_in_it_and_nothing_else() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = thread.thread_id.clone();
+    let reply = s
+        .agent_post_thread(&ch, &t, "検索語あり", Some(&thread.last_message_id))
+        .unwrap();
+    s.agent_resolve(&ch, &t, &reply.message_id).unwrap();
+    s.mark_read(Scope::Thread { thread_id: &t }, &reply.message_id)
+        .unwrap();
+
+    let other = s.create_channel("別", &launch()).unwrap().channel_id;
+    let kept = s.user_post_main(&other, "検索語あり").unwrap();
+
+    assert_eq!(s.delete_channel(&ch).unwrap(), vec![t.clone()]);
+
+    assert_eq!(s.channel(&ch), Err(Error::ChannelNotFound));
+    assert_eq!(s.channel_of_thread(&t).unwrap(), None);
+    assert_eq!(
+        s.read_position(Scope::Thread { thread_id: &t }).unwrap(),
+        None
+    );
+    assert_eq!(s.delete_channel(&ch), Err(Error::ChannelNotFound));
+
+    let channels = s.channels().unwrap();
+    assert_eq!(channels.len(), 1);
+    assert_eq!(channels[0].channel_id, other);
+    let found = s.search(&other, "検索語", None, None).unwrap();
+    assert_eq!(found.items.len(), 1);
+    assert_eq!(found.items[0].message_id, kept.message_id);
+    // Messages written after the delete must still be searchable.
+    s.user_post_main(&other, "検索語その2").unwrap();
+    assert_eq!(
+        s.search(&other, "検索語", None, None).unwrap().items.len(),
+        2
+    );
+}
+
+#[test]
 fn search_finds_japanese_in_main_and_threads() {
     let (mut s, ch) = setup();
     let other = s.create_channel("別", &launch()).unwrap().channel_id;

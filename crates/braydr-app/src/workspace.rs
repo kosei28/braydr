@@ -277,6 +277,37 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Moves on from a channel that no longer exists.
+    pub fn finish_delete(
+        &mut self,
+        channel_id: &str,
+        thread_ids: &[String],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.drafts.remove(channel_id);
+        let tags = std::iter::once(format!("main:{channel_id}"))
+            .chain(thread_ids.iter().map(|id| format!("thread:{id}")));
+        for tag in tags {
+            cx.dismiss_system_notification(&tag);
+            self.notified.remove(&tag);
+        }
+        self.overlay = None;
+        self.pane = None;
+        self.timeline = None;
+        self.selected = None;
+        self.reload_channels();
+        match self
+            .channels
+            .first()
+            .map(|row| row.channel.channel_id.clone())
+        {
+            Some(first) => self.select(first, window, cx),
+            None => self.start_create(window, cx),
+        }
+        cx.notify();
+    }
+
     /// Each channel keeps its own unsent text.
     fn current_draft(
         &mut self,
@@ -627,7 +658,10 @@ impl Workspace {
     /// Opens the timeline a notification points at.
     pub fn open_tag(&mut self, tag: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(channel_id) = tag.strip_prefix("main:") {
-            self.select(channel_id.to_owned(), window, cx);
+            // A notification can outlive its channel.
+            if self.rt.store().channel(channel_id).is_ok() {
+                self.select(channel_id.to_owned(), window, cx);
+            }
         } else if let Some(thread_id) = tag.strip_prefix("thread:") {
             let store = self.rt.store();
             let thread = store
