@@ -450,6 +450,50 @@ impl Store {
         })
     }
 
+    pub fn channel_summary(&self, channel_id: &str) -> Result<ChannelSummary> {
+        let channel = self.channel(channel_id)?;
+        let (post_count, updated_at, last_author) = self
+            .conn
+            .query_row(
+                "SELECT (SELECT count(*) FROM messages WHERE channel_id = ?1 AND thread_id IS NULL),
+                        (SELECT created_at FROM messages WHERE channel_id = ?1 AND thread_id IS NULL ORDER BY message_id DESC LIMIT 1),
+                        (SELECT author FROM messages WHERE channel_id = ?1 AND thread_id IS NULL ORDER BY message_id DESC LIMIT 1)",
+                [channel_id],
+                |row| Ok((row.get(0)?, row.get(1)?, optional_author_at(row, 2)?)),
+            )
+            .db()?;
+        let count = |filter| -> Result<i64> {
+            let last = "(SELECT author FROM messages l WHERE l.thread_id = t.thread_id ORDER BY l.message_id DESC LIMIT 1)";
+            let condition = match filter {
+                ThreadFilter::All => "1".to_owned(),
+                ThreadFilter::Unresolved => "t.resolved_at IS NULL".to_owned(),
+                ThreadFilter::Resolved => "t.resolved_at IS NOT NULL".to_owned(),
+                ThreadFilter::AwaitingAgent => format!("t.resolved_at IS NULL AND {last} = 'user'"),
+                ThreadFilter::AwaitingUser => format!("t.resolved_at IS NULL AND {last} = 'agent'"),
+            };
+            self.conn
+                .query_row(
+                    &format!(
+                        "SELECT count(*) FROM threads t WHERE t.channel_id = ?1 AND {condition}"
+                    ),
+                    [channel_id],
+                    |row| row.get(0),
+                )
+                .db()
+        };
+        Ok(ChannelSummary {
+            channel,
+            post_count,
+            updated_at,
+            last_author,
+            thread_count_total: count(ThreadFilter::All)?,
+            thread_count_unresolved: count(ThreadFilter::Unresolved)?,
+            thread_count_resolved: count(ThreadFilter::Resolved)?,
+            thread_count_awaiting_agent: count(ThreadFilter::AwaitingAgent)?,
+            thread_count_awaiting_user: count(ThreadFilter::AwaitingUser)?,
+        })
+    }
+
     pub fn unresolved_count(&self, channel_id: &str) -> Result<i64> {
         self.conn
             .query_row(
@@ -761,6 +805,19 @@ fn wall_clock() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .expect("the clock is after the epoch")
         .as_millis() as i64
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChannelSummary {
+    pub channel: Channel,
+    pub post_count: i64,
+    pub updated_at: Option<i64>,
+    pub last_author: Option<Author>,
+    pub thread_count_total: i64,
+    pub thread_count_unresolved: i64,
+    pub thread_count_resolved: i64,
+    pub thread_count_awaiting_agent: i64,
+    pub thread_count_awaiting_user: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

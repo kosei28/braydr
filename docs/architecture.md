@@ -27,7 +27,7 @@
 | 通知 | GPUI の `SystemNotification` | 同上 | `tag` の置換、取り消し、選択時の応答を持つ |
 | フォルダ選択 | GPUI の `prompt_for_paths` | 同上 | `rfd` を足さずに済む |
 | ログ | `tracing` | 0.1 | 構造化ログ |
-| テスト | `#[gpui_kit::test]`、`cargo-nextest`、`insta`、`proptest` | — | 6 章 |
+| テスト | `#[gpui_kit::test]`、`cargo-nextest`、`proptest` | — | 6 章 |
 
 採用しないもの:
 
@@ -78,7 +78,7 @@ crates/
 ├ braydr-core    ドメインの型と規則。GPUI と SQLite に依存しない
 ├ braydr-store   SQLite の実装。スキーマ、マイグレーション、検索
 ├ braydr-herdr   herdr-core の JSON-RPC クライアント
-├ braydr-ipc     アプリとサイドカーの間のプロトコル定義
+├ braydr-ipc     ツールの定義と JSON、アプリとサイドカーの間のプロトコル
 ├ braydr-mcp     サイドカーのバイナリ（rmcp + tokio）
 └ braydr-app     アプリのバイナリ（gpui-kit）
 ```
@@ -164,7 +164,9 @@ INSERT のトリガーだけで足りる。1 チャンネル内の検索なの�
 - MCP の詳細と tokio がアプリに入らない。
 - ソケットは `~/Library/Application Support/Braydr/ipc.sock`、権限は 0600。
 - サイドカーは環境変数 `BRAYDR_CHANNEL_ID` を要求に付ける。ツールはチャンネルを引数に取らない。
-- ツールの判断（`after`、`unanswered` など）はアプリ側の `braydr-core` で行い、サイドカーは検証しない。
+- ツールの判断（`after`、`unanswered` など）はアプリ側の `braydr-store` で行い、サイドカーは検証しない。
+- ツールの定義は `braydr-ipc` に置き、サイドカーはそれを公開して中継するだけにする。
+- スキルの本文は `skills/braydr/SKILL.md` に置く。
 
 ### エージェントの起動とセットアップ
 
@@ -243,7 +245,7 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 | --- | --- | --- | --- |
 | 単体 | 未読、未返信、`after`、通知の判定、督促の条件 | 標準のテスト、`proptest` | 常時 |
 | DB | 不変条件、トランザクション、マイグレーション、検索 | 一時ファイルの実 SQLite | 常時 |
-| ツール | 全ツールの正常系と全エラーコード | `insta` で JSON を固定 | 常時 |
+| ツール | 全ツールの正常系と全エラーコード | JSON の検証 | 常時 |
 | 配送 | 送信順序、再送、停止、督促 | 偽の herdr サーバー（Unix socket）、GPUI の決定的な executor | 常時 |
 | UI | クリック、キー入力、スクロール、フォーカス、IME の状態遷移 | `#[gpui_kit::test]`、`test-support` | 常時 |
 | 契約 | herdr-core の実 API | 実物の `hc` を `HC_SESSION` で隔離 | CI |
