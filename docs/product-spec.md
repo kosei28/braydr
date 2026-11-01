@@ -36,7 +36,7 @@
 - 時刻は UTC で保存し、UI は端末のローカルタイムで表示する。
 - `message_id` / `thread_id` / `channel_id` は UUIDv7。時系列順に並ぶ。
 - `channel_id` は内部 ID。ユーザーはチャンネル名（表示名）を設定する。
-- スキルの引数には `channel_id` を渡す。terminal 名は指定しない。
+- Braydr は terminal 名を指定しない。
 - スレッドにタイトルは持たせない。親メッセージが実質のタイトルになる。
 
 ---
@@ -99,7 +99,6 @@
 - 確定は明示的な操作で行う。IME の確定と衝突するので、Enter では作成しない。
 - 起動コマンドとプロンプトは自由入力とする。ハーネスとモデルの選択肢は持たない。
 - 起動コマンドとプロンプトの既定値はアプリの設定で持つ（4.9）。
-- プロンプトの `{channel_id}` は起動時にチャンネルの ID に置き換える。
 - 作成するとセッションを起動する（8.1）。**エージェントに投稿させない。** メインのタイムラインは
   空のままにする。準備完了の挨拶も、システムメッセージも作らない。
 - 起動に失敗した場合もチャンネルは残し、再試行できるようにする。投稿は保存できるが、通知は届かない。
@@ -241,10 +240,13 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 - チャンネル一覧は最終投稿が新しい順。
 - 未解決スレッド数は 0 件なら示さない。
-- チャンネル名のメニューは、名前の変更、起動コマンド、新しいセッションの開始を持つ。
+- チャンネル名のメニューは、名前の変更、attach のコマンド、新しいセッションの開始を持つ。
   停止中は終了理由（`reason` / `exit_code`）も示す。
 - チャンネル作成直後は空のメインのタイムラインを表示する。挨拶は出さない。
 - セッションが停止している間は、その旨を投稿欄の近くで示し、新しいセッションを開始できるようにする。
+- セッションの起動後、またはユーザーの投稿後に、エージェントのツール呼び出しがないまま 60 秒経ったら、
+  しばらく応答がないことと attach のコマンドを投稿欄の近くで示す。ツールが呼ばれたら消す。
+  時間がかかっているだけの場合もあるので、原因は断定しない。
 
 ### 4.7 チャンネル内検索
 
@@ -311,13 +313,12 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `session_id` | 現在の herdr-core terminal の `address`（例: `t7`）。未起動なら null |
 | `cwd` | セッションの作業ディレクトリ |
 | `command` | セッションの起動コマンド。シェルの 1 行 |
-| `prompt` | セッションの起動プロンプト。`{channel_id}` は置き換える前の形で保存する |
+| `prompt` | セッションの起動プロンプト |
 | `created_at` | 作成時刻 |
 
 補足:
 
 - `channel_id` は内部 ID。UI と通知では `name`（通知では `channel_name`）を表示する。
-- ツールの `channel` 引数には `channel_id` を渡す。`name` は渡さない。
 - 名前は一意でなくてよい。同じ名前のチャンネルが複数あり得る。
 
 #### メッセージ
@@ -447,18 +448,10 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - entity: `channel` / `thread` / `message`
 - action: `get` / `list` / `list_posts` / `create` / `create_post` / `resolve` / `unresolve` / `search`
 
-すべてのツールは第 1 引数に `channel`（`channel_id` の UUIDv7）を取る。アプリは
-セッションに紐づくチャンネルと照合し、一致しなければエラーにする。エージェントが
-別チャンネルを操作することはできない。`channel` には `channel_name` ではなく
-`channel_id` を渡す。
+ツールはチャンネルを引数に取らない。アプリはセッションの起動時に環境変数 `BRAYDR_CHANNEL_ID` を渡し、
+`braydr-mcp` がこの値で対象のチャンネルを決める。エージェントが別チャンネルを操作することはできない。
 
 ### 6.2 共通ルール
-
-#### `channel`
-
-- すべてのツールで必須。
-- セッションに紐づくチャンネルと一致しなければ `channel_mismatch`。
-- ツールはこのチャンネルの外を読んだり書いたりできない。
 
 #### `after`
 
@@ -504,23 +497,23 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 | ツール | 主な引数 | ページング |
 | --- | --- | --- |
-| `braydr_channel_get` | `channel` | なし |
-| `braydr_channel_list_posts` | `channel`, `cursor?`, `limit` | `cursor` / `next_cursor` |
-| `braydr_thread_get` | `channel`, `thread_id` | なし |
-| `braydr_thread_list` | `channel`, `filter?`, `cursor?`, `limit` | `cursor` / `next_cursor` |
-| `braydr_thread_list_posts` | `channel`, `thread_id`, `cursor?`, `limit` | `cursor` / `next_cursor` |
-| `braydr_message_get` | `channel`, `message_id` | なし |
-| `braydr_message_search` | `channel`, `query`, `cursor?`, `limit` | `cursor` / `next_cursor` |
-| `braydr_channel_create_post` | `channel`, `text`, `after?` | なし |
-| `braydr_thread_create_post` | `channel`, `thread_id`, `text`, `after?` | なし |
-| `braydr_thread_create` | `channel`, `parent_message_id`, `text` | なし |
-| `braydr_thread_resolve` | `channel`, `thread_id`, `after` | なし |
-| `braydr_thread_unresolve` | `channel`, `thread_id` | なし |
+| `braydr_channel_get` | なし | なし |
+| `braydr_channel_list_posts` | `cursor?`, `limit` | `cursor` / `next_cursor` |
+| `braydr_thread_get` | `thread_id` | なし |
+| `braydr_thread_list` | `filter?`, `cursor?`, `limit` | `cursor` / `next_cursor` |
+| `braydr_thread_list_posts` | `thread_id`, `cursor?`, `limit` | `cursor` / `next_cursor` |
+| `braydr_message_get` | `message_id` | なし |
+| `braydr_message_search` | `query`, `cursor?`, `limit` | `cursor` / `next_cursor` |
+| `braydr_channel_create_post` | `text`, `after?` | なし |
+| `braydr_thread_create_post` | `thread_id`, `text`, `after?` | なし |
+| `braydr_thread_create` | `parent_message_id`, `text` | なし |
+| `braydr_thread_resolve` | `thread_id`, `after` | なし |
+| `braydr_thread_unresolve` | `thread_id` | なし |
 
 スレッド一覧（`braydr_thread_list`）、メッセージ一覧（`*_list_posts`）、検索
 （`braydr_message_search`）は、いずれもカーソルページングを持つ。
 
-#### `braydr_channel_get(channel)`
+#### `braydr_channel_get()`
 
 チャンネルの名前と状態を返す。メインのタイムラインの件数、最後の投稿、スレッドの集計。
 
@@ -549,7 +542,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `thread_count_awaiting_user` は未返信（ユーザー待ち）の数。
 - `thread_count_unresolved` は上の 2 つの合計。
 
-#### `braydr_channel_list_posts(channel, cursor?, limit=50)`
+#### `braydr_channel_list_posts(cursor?, limit=50)`
 
 メインのタイムラインを返す。親メッセージも含む。
 
@@ -573,13 +566,13 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 }
 ```
 
-#### `braydr_thread_get(channel, thread_id)`
+#### `braydr_thread_get(thread_id)`
 
 スレッドのメタデータと親メッセージを返す。返信は含めない。
 
 返り値はスレッドオブジェクト（6.4）。
 
-#### `braydr_thread_list_posts(channel, thread_id, cursor?, limit=50)`
+#### `braydr_thread_list_posts(thread_id, cursor?, limit=50)`
 
 親メッセージ、スレッドの状態、解決状態の履歴、返信を返す。`messages` は返信だけ。
 親は `parent_message`。
@@ -634,12 +627,12 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `state_events` は解決状態の履歴を古い順に全件返す。ページングしない。誰が解決・再開したかの
   判断に使う。
 
-#### `braydr_message_get(channel, message_id)`
+#### `braydr_message_get(message_id)`
 
 メッセージを 1 件返す。メインでもスレッド内でもよい。
 `child_thread_id` で、そのメッセージを起点とするスレッドが分かる。
 
-#### `braydr_thread_list(channel, filter="unresolved", cursor?, limit=20)`
+#### `braydr_thread_list(filter="unresolved", cursor?, limit=20)`
 
 スレッド一覧を返す。各項目に親メッセージを含む。
 
@@ -692,7 +685,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   更新された項目が移動して取りこぼすことがある。キューとして使うときは、
   先頭ページを処理してから引き直す（9 章）。
 
-#### `braydr_message_search(channel, query, cursor?, limit=20)`
+#### `braydr_message_search(query, cursor?, limit=20)`
 
 チャンネル内のメインとスレッドの全メッセージを全文検索する。
 
@@ -702,7 +695,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - 本文を切り詰めない。チャンネルの外は検索できない。
 - 解決状態の履歴は対象にしない。
 
-#### `braydr_channel_create_post(channel, text, after?)`
+#### `braydr_channel_create_post(text, after?)`
 
 メインのタイムラインに投稿する。`author` は `agent`。
 
@@ -717,7 +710,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 }
 ```
 
-#### `braydr_thread_create_post(channel, thread_id, text, after?)`
+#### `braydr_thread_create_post(thread_id, text, after?)`
 
 スレッドに返信する。`author` は `agent`。
 
@@ -726,7 +719,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   あるので、実質必須。
 - 返り値は `braydr_channel_create_post` と同じ。
 
-#### `braydr_thread_create(channel, parent_message_id, text)`
+#### `braydr_thread_create(parent_message_id, text)`
 
 スレッドの作成と最初の返信の投稿を同時に行う。`author` は `agent`。
 
@@ -748,7 +741,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `thread` は親メッセージを含むスレッドオブジェクト。
 - `message` は作成した最初の返信。
 
-#### `braydr_thread_resolve(channel, thread_id, after)`
+#### `braydr_thread_resolve(thread_id, after)`
 
 スレッドを解決する。メッセージは作らない。
 
@@ -759,7 +752,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `updated_at` を更新し、解決状態の履歴に記録する。
 - 返り値はスレッドオブジェクト。
 
-#### `braydr_thread_unresolve(channel, thread_id)`
+#### `braydr_thread_unresolve(thread_id)`
 
 スレッドを未解決に戻す。メッセージは作らない。
 
@@ -840,8 +833,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 | code | いつ |
 | --- | --- |
-| `channel_not_found` | チャンネルが無い |
-| `channel_mismatch` | セッションのチャンネルと引数が違う |
+| `channel_not_found` | `BRAYDR_CHANNEL_ID` が無い、または該当するチャンネルが無い |
 | `invalid_argument` | ID の形式が不正、など |
 | `thread_not_found` | スレッドが無い、または別チャンネル |
 | `message_not_found` | メッセージが無い、または別チャンネル |
@@ -883,7 +875,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 1. `[braydr] new post`（scope: main）を受け取る。
 2. `braydr_channel_list_posts` で最新ページを読む。最後の ID を `after` にする。
 3. 作業する。
-4. `braydr_channel_create_post(channel, text, after)`。
+4. `braydr_channel_create_post(text, after)`。
 5. メインには解決状態が無いので、解決しない。
 
 #### スレッドの依頼に返して解決する
@@ -891,14 +883,14 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 1. `[braydr] new post`（scope: thread）を受け取る。
 2. `braydr_thread_list_posts` で親と返信を読む。最後の ID を `after` にする。
 3. 作業する。
-4. `braydr_thread_create_post(channel, thread_id, text, after)`。
+4. `braydr_thread_create_post(thread_id, text, after)`。
 5. 返ってきたメッセージ ID を `after` にして
-   `braydr_thread_resolve(channel, thread_id, after)`。
+   `braydr_thread_resolve(thread_id, after)`。
 
 #### 解決済みスレッドに追加確認したい
 
 1. `braydr_thread_get` で状態と親を確認する。
-2. `braydr_thread_unresolve(channel, thread_id)`。
+2. `braydr_thread_unresolve(thread_id)`。
 3. `braydr_thread_create_post` で質問を投稿する。
 4. ユーザーの返事を待つので、解決しない。未返信（ユーザー待ち）になる。
 
@@ -981,13 +973,11 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 原文をそのまま置く。シェルを挟まないので、本文の引用符や改行をシェル用に
 エスケープする必要はない。JSON 文字列として渡す。
 
-- `channel` は `channel_id`（UUIDv7）。`channel_name` は表示用で、ツールには渡さない。
 
 #### メインへの投稿
 
 ```text
 [braydr] new post
-channel: 0190a3c4-1234-7abc-8def-0123456789ab
 channel_name: ログイン修正
 scope: main
 message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
@@ -999,7 +989,6 @@ message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
 
 ```text
 [braydr] new post
-channel: 0190a3c4-1234-7abc-8def-0123456789ab
 channel_name: ログイン修正
 scope: thread
 thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
@@ -1018,7 +1007,6 @@ reopened: true
 
 ```text
 [braydr] new thread
-channel: 0190a3c4-1234-7abc-8def-0123456789ab
 channel_name: ログイン修正
 thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
 message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
@@ -1053,21 +1041,9 @@ parent_message_id: 0190d3f4-4567-7def-9012-3456789abcde
 
 ### 7.6 別の herdr クライアントからの attach
 
-Braydr のセッションは通常の herdr terminal なので、同じ core に接続した別の herdr
-クライアントから `terminal.list` / `terminal.attach` で開ける。`labels` に
-`braydr=1` / `channel=<channel_id>` が付いているので見つけやすい。別マシンの core なら
-`machine/t7` の形で address する。
-
-- 読み取り専用の `observe: true` は許可する。ログ確認・デバッグ用。
-  observe の viewer は type も resize もしない。
-- 書き込みを伴う attach は Braydr の外で会話が進む。その入力は Braydr の
-  メッセージにならず、未読・解決状態・`after` とも一致しない。サポート外とする。
-  書き込みする viewer が入力すると `terminal.send` の送信とも競合しうる。
-- アプリは別クライアントの attach を検知・禁止できない。core の socket に
-  アクセスできるクライアントは attach できる。必要なら core の権限を絞る。
-- Braydr の UI に「herdr で開く」導線は置かない。アプリ内に端末を埋め込まない
-  方針は変えない。別クライアントで開けるのは端末であり、Braydr のチャンネル・
-  スレッド・未読の UI ではない。
+Braydr のセッションは通常の herdr terminal なので、別のクライアントから attach できる。
+Braydr はこれをサポートしないが、禁止もしない。アプリから attach して開く機能は作らない。
+チャンネル名のメニューと、応答がないときの表示に、attach のコマンドを出してコピーできるようにする。
 
 ---
 
@@ -1081,7 +1057,7 @@ Braydr のセッションは通常の herdr terminal なので、同じ core に
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"terminal.run","params":{
-  "line":"claude --model opus '/braydr 0190a3c4-1234-7abc-8def-0123456789ab'",
+  "line":"claude --model opus '/braydr'",
   "cwd":"/Users/me/code/braydr",
   "env":{"BRAYDR_CHANNEL_ID":"0190a3c4-1234-7abc-8def-0123456789ab"},
   "labels":{"braydr":"1","channel":"0190a3c4-1234-7abc-8def-0123456789ab"},
@@ -1096,7 +1072,7 @@ Braydr のセッションは通常の herdr terminal なので、同じ core に
   UI に示す。コマンドが見つからない場合もここに含まれる。
 - `terminal.run` で `name` は指定しない。core が割り当てる `address` を
   `session_id` にし、`labels.channel` でチャンネルと照合する。
-- 起動コマンドの初期の既定値は `claude`、プロンプトの初期の既定値は `/braydr {channel_id}`。
+- 起動コマンドの初期の既定値は `claude`、プロンプトの初期の既定値は `/braydr`。
 - 履歴の自動注入はしない。セッションは空の文脈で始まる。必要な履歴はエージェントが読む。
 - `channel_id` は `labels.channel` に入れる。Braydr は terminal 名を使わない。
 - `keep` は使わない。失われたプログラムをシェルに置き換えるだけで、エージェントは戻らないため。
@@ -1140,14 +1116,13 @@ Braydr のセッションは通常の herdr terminal なので、同じ core に
 ```markdown
 ---
 name: braydr
-description: Operate one Braydr channel. Use at the start of a Braydr session, with the channel id as the argument, and for any Braydr post, thread, or resolution work.
+description: Operate one Braydr channel. Use at the start of a Braydr session and for any Braydr post, thread, or resolution work.
 ---
 
 # Braydr
 
 You are the only agent for one Braydr channel. Every `braydr_*` tool is scoped
-to that channel. Pass the same `channel` id (the UUID) on every call.
-Notifications also carry `channel_name`; it is a label, not a tool argument.
+to that channel, so you never pass a channel id.
 
 ## The model
 
@@ -1163,8 +1138,8 @@ Notifications also carry `channel_name`; it is a label, not a tool argument.
 
 ## When the session starts
 
-The argument is the channel id. This session may be the first for this channel,
-or it may replace an earlier one. Do not assume which: read the state.
+This session may be the first for this channel, or it may replace an earlier
+one. Do not assume which: read the state.
 
 1. Call `braydr_channel_get`.
 2. If the main timeline is empty and no threads exist, do not post. Wait for the
@@ -1313,7 +1288,6 @@ queue.
 
 ```text
 [braydr] nudge
-channel: 0190a3c4-1234-7abc-8def-0123456789ab
 channel_name: ログイン修正
 awaiting_agent_threads:
 - thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
@@ -1330,7 +1304,6 @@ more: false
 - メインの未対応が無ければ `main` を省略する。スレッドの未対応が無ければ
   `awaiting_agent_threads` を省略する。
 - 本文は含めない。ID と時刻だけを送り、エージェントに読ませる。
-- `channel` は `channel_id`（UUIDv7）。`channel_name` は表示用で、ツールには渡さない。
 - 督促への返信は不要。列挙された対象を処理する。
 
 ### 10.5 補足
@@ -1367,6 +1340,5 @@ more: false
 
 ## 12. 未決事項
 
-- プロンプトを最後の引数で受け取れないハーネスの扱い。
 - 作業ディレクトリを変えたときの履歴の扱い。前のディレクトリのパスを含む履歴を新しいセッションが読む。
 - 検索の日本語対応の方式。
