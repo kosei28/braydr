@@ -26,8 +26,6 @@ impl NudgeTimer {
     }
 }
 
-pub const NO_RESPONSE_AFTER_MS: i64 = 60_000;
-
 /// Set when a response is expected: a session started or the user posted. A tool call clears it.
 #[derive(Debug, Clone, Default)]
 pub struct ResponseWatch {
@@ -43,9 +41,9 @@ impl ResponseWatch {
         self.waiting_since = None;
     }
 
-    pub fn silent(&self, now: i64) -> bool {
+    pub fn silent(&self, now: i64, after_ms: i64) -> bool {
         self.waiting_since
-            .is_some_and(|since| now - since >= NO_RESPONSE_AFTER_MS)
+            .is_some_and(|since| now - since >= after_ms)
     }
 }
 
@@ -70,12 +68,12 @@ mod tests {
     #[test]
     fn silence_counts_from_the_first_expectation_until_a_tool_call() {
         let mut watch = ResponseWatch::default();
-        assert!(!watch.silent(1_000_000));
+        assert!(!watch.silent(1_000_000, 60_000));
         watch.expect(0);
         watch.expect(50_000);
-        assert!(!watch.silent(59_999));
-        assert!(watch.silent(60_000));
+        assert!(!watch.silent(59_999, 60_000));
+        assert!(watch.silent(60_000, 60_000));
         watch.tool_called();
-        assert!(!watch.silent(120_000));
+        assert!(!watch.silent(120_000, 60_000));
     }
 }

@@ -287,12 +287,8 @@ impl<C: Core + 'static> Runtime<C> {
     // Posts
 
     pub fn post_main(self: &Arc<Self>, channel_id: &str, text: &str) -> Result<Message> {
-        let (message, name) = {
-            let mut store = self.store();
-            let message = store.user_post_main(channel_id, text)?;
-            (message, store.channel(channel_id)?.name)
-        };
-        self.deliver(channel_id, notification::new_post_main(&name, &message));
+        let message = self.store().user_post_main(channel_id, text)?;
+        self.deliver(channel_id, notification::new_post_main(&message));
         self.bump();
         Ok(message)
     }
@@ -303,21 +299,13 @@ impl<C: Core + 'static> Runtime<C> {
         parent_message_id: &str,
         text: &str,
     ) -> Result<UserReply> {
-        let (reply, name) = {
-            let mut store = self.store();
-            let reply = store.user_reply(channel_id, parent_message_id, text)?;
-            (reply, store.channel(channel_id)?.name)
-        };
+        let reply = self
+            .store()
+            .user_reply(channel_id, parent_message_id, text)?;
         let text = if reply.created {
-            notification::new_thread(
-                &name,
-                &reply.thread.thread_id,
-                parent_message_id,
-                &reply.message,
-            )
+            notification::new_thread(&reply.thread.thread_id, parent_message_id, &reply.message)
         } else {
             notification::new_post_thread(
-                &name,
                 &reply.thread.thread_id,
                 parent_message_id,
                 &reply.message,
@@ -426,7 +414,7 @@ impl<C: Core + 'static> Runtime<C> {
                 last_message_id,
                 last_message_at: views::iso(at),
             });
-            let text = notification::nudge(&channel.name, &threads, main.as_ref(), more);
+            let text = notification::nudge(&threads, main.as_ref(), more);
             let Some(address) = self.ready_address(&channel.channel_id) else {
                 continue;
             };
@@ -440,7 +428,8 @@ impl<C: Core + 'static> Runtime<C> {
     /// Whether to show "no response for a while" (`docs/product-spec.md` 4.6).
     pub fn is_silent(&self, channel_id: &str) -> bool {
         let now = self.now();
-        self.with_channel(channel_id, |state| state.watch.silent(now))
+        let after_ms = self.store().settings().unwrap_or_default().nudge_minutes * 60 * 1000;
+        self.with_channel(channel_id, |state| state.watch.silent(now, after_ms))
     }
 
     // Tools

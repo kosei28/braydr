@@ -205,11 +205,7 @@ fn notifications_keep_posting_order_and_format() {
     let sent = wait_sent(&e.core, 3);
     assert_eq!(sent.len(), 3);
     assert!(sent.iter().all(|(address, _)| address == "t1"));
-    assert!(
-        sent[0]
-            .1
-            .starts_with("[braydr] new post\nchannel_name: 開発\nscope: main\n")
-    );
+    assert!(sent[0].1.starts_with("[braydr] new post\nscope: main\n"));
     assert!(sent[0].1.ends_with("---\n親"));
     assert!(sent[1].1.starts_with("[braydr] new thread\n"));
     assert!(sent[2].1.contains("scope: thread") && sent[2].1.contains("reopened: true"));
@@ -366,13 +362,30 @@ fn no_nudge_to_a_stopped_session() {
     assert_eq!(e.core.sent.lock().unwrap().len(), 1);
 }
 
+/// The default interval between nudges, which is also when silence is shown.
+const FIVE_MINUTES: i64 = 5 * 60 * 1000;
+
+#[test]
+fn silence_follows_the_nudge_interval() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    let mut settings = e.rt.store().settings().unwrap();
+    settings.nudge_minutes = 1;
+    e.rt.store().save_settings(&settings).unwrap();
+    e.clock.fetch_add(59_999, Ordering::SeqCst);
+    assert!(!e.rt.is_silent(&ch));
+    e.clock.fetch_add(1, Ordering::SeqCst);
+    assert!(e.rt.is_silent(&ch));
+}
+
 #[test]
 fn silence_ends_with_any_tool_call() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
     let ch = channel.channel_id;
     assert!(!e.rt.is_silent(&ch));
-    e.clock.fetch_add(60_000, Ordering::SeqCst);
+    e.clock.fetch_add(FIVE_MINUTES, Ordering::SeqCst);
     assert!(e.rt.is_silent(&ch));
     let response = e.rt.handle_tool(&Request {
         channel: Some(ch.clone()),
@@ -382,7 +395,7 @@ fn silence_ends_with_any_tool_call() {
     assert!(matches!(response, Response::Result(_)));
     assert!(!e.rt.is_silent(&ch));
     e.rt.post_main(&ch, "次").unwrap();
-    e.clock.fetch_add(59_999, Ordering::SeqCst);
+    e.clock.fetch_add(FIVE_MINUTES - 1, Ordering::SeqCst);
     assert!(!e.rt.is_silent(&ch));
     e.clock.fetch_add(1, Ordering::SeqCst);
     assert!(e.rt.is_silent(&ch));

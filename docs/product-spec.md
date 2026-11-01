@@ -106,7 +106,7 @@
 #### チャンネル名の変更
 
 ユーザーはチャンネル名を変更できる。検証は作成時と同じで、Enter では確定しない。
-変更は次の通知の `channel_name` から反映し、実行中のセッションには知らせない。
+変更は実行中のセッションには知らせない。
 
 #### セッションの状態
 
@@ -244,7 +244,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   停止中は終了理由（`reason` / `exit_code`）も示す。
 - チャンネル作成直後は空のメインのタイムラインを表示する。挨拶は出さない。
 - セッションが停止している間は、その旨を投稿欄の近くで示し、新しいセッションを開始できるようにする。
-- セッションの起動後、またはユーザーの投稿後に、エージェントのツール呼び出しがないまま 60 秒経ったら、
+- セッションの起動後、またはユーザーの投稿後に、エージェントのツール呼び出しがないまま再通知の間隔（既定は 5 分）が経ったら、
   しばらく応答がないことと attach のコマンドを投稿欄の近くで示す。ツールが呼ばれたら消す。
   時間がかかっているだけの場合もあるので、原因は断定しない。
 
@@ -318,7 +318,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 補足:
 
-- `channel_id` は内部 ID。UI と通知では `name`（通知では `channel_name`）を表示する。
+- `channel_id` は内部 ID。UI では `name` を表示する。
 - 名前は一意でなくてよい。同じ名前のチャンネルが複数あり得る。
 
 #### メッセージ
@@ -981,7 +981,6 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 ```text
 [braydr] new post
-channel_name: ログイン修正
 scope: main
 message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
 ---
@@ -992,7 +991,6 @@ message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
 
 ```text
 [braydr] new post
-channel_name: ログイン修正
 scope: thread
 thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
 message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
@@ -1010,7 +1008,6 @@ reopened: true
 
 ```text
 [braydr] new thread
-channel_name: ログイン修正
 thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
 message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
 parent_message_id: 0190d3f4-4567-7def-9012-3456789abcde
@@ -1161,7 +1158,6 @@ Braydr はこれをサポートしないが、禁止もしない。アプリか�
 
 ```text
 [braydr] nudge
-channel_name: ログイン修正
 awaiting_agent_threads:
 - thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
   last_message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
