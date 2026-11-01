@@ -1,7 +1,7 @@
 # Braydr
 
 コーディングエージェントとのやり取りを、Slack 風のタイムラインとスレッドで行う macOS アプリ。
-エージェントの実行は [herdr-core](https://github.com/ogulcancelik/herdr) に任せる。
+エージェントの実行は [herdr-core](https://github.com/herdrdev/herdr-core) に任せる。
 
 ![チャンネルのタイムラインと右シートのスレッド](docs/images/thread.png)
 
@@ -66,3 +66,10 @@ BRAYDR_DATA_DIR=/tmp/b BRAYDR_SCREENSHOT=/tmp/shot.png BRAYDR_SCREENSHOT_STATE=s
 
 `BRAYDR_SCREENSHOT_STATE` は `thread` `unresolved` `search` `menu` `rename` `session` `create`
 `collapsed` `settings` `draft` `copied` `flash` `resize` のどれか。
+
+## ライセンス
+
+[MIT](LICENSE)。同梱のものは次のライセンスに従う。
+
+- IBM Plex Sans JP、IBM Plex Mono: [SIL Open Font License 1.1](crates/braydr-app/assets/fonts/OFL.txt)
+- Lucide のアイコン: [ISC](crates/braydr-app/assets/icons/LICENSE)
