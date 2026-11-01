@@ -4,11 +4,21 @@ use chrono::{Datelike, Local, TimeZone};
 use gpui_kit::component::Sizable as _;
 use gpui_kit::component::input::{Textarea, TextareaState};
 use gpui_kit::{
-    Div, ElementId, Entity, FontWeight, InteractiveElement as _, ParentElement as _, Rgba,
-    SharedString, Stateful, Styled as _, Svg, div, px, svg,
+    App, Div, ElementId, Entity, FontWeight, InteractiveElement as _, MouseDownEvent,
+    ParentElement as _, Rgba, SharedString, Stateful, Styled as _, Svg, Window, div, px, svg,
 };
 
 use crate::theme;
+
+/// For the areas that stand in for a title bar: drag moves the window, and a double click does
+/// what the system setting says, which is zoom unless the user changed it.
+pub fn title_bar_mouse_down(event: &MouseDownEvent, window: &mut Window, _: &mut App) {
+    if event.click_count == 2 {
+        window.titlebar_double_click();
+    } else {
+        window.start_window_move();
+    }
+}
 
 pub fn icon(name: &'static str, size: f32, color: Rgba) -> Svg {
     svg()

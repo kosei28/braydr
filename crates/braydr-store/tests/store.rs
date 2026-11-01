@@ -422,6 +422,16 @@ fn ids_are_time_ordered_and_migrations_are_idempotent() {
 }
 
 #[test]
+fn values_persist_and_do_not_disturb_settings() {
+    let mut store = Store::in_memory().unwrap();
+    assert_eq!(store.value("main_window").unwrap(), None);
+    store.set_value("main_window", "a").unwrap();
+    store.set_value("main_window", "b").unwrap();
+    assert_eq!(store.value("main_window").unwrap().as_deref(), Some("b"));
+    assert_eq!(store.settings().unwrap(), Settings::default());
+}
+
+#[test]
 fn settings_default_and_persist() {
     let mut store = Store::in_memory().unwrap();
     assert_eq!(store.settings().unwrap(), Settings::default());

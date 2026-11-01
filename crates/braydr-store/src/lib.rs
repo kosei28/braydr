@@ -667,6 +667,27 @@ impl Store {
         })
     }
 
+    /// A value the app keeps for itself, outside the settings the user edits.
+    pub fn value(&self, key: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                row.get(0)
+            })
+            .optional()
+            .db()
+    }
+
+    pub fn set_value(&mut self, key: &str, value: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                 ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                params![key, value],
+            )
+            .db()?;
+        Ok(())
+    }
+
     pub fn save_settings(&mut self, settings: &Settings) -> Result<()> {
         self.write(|tx, _| {
             for (key, value) in [

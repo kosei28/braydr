@@ -18,7 +18,7 @@ use gpui_kit::{
 
 use crate::overlay::{LaunchFields, Overlay};
 use crate::timeline::{OwnedScope, Row, Rt, ThreadLink, Timeline};
-use crate::{settings, theme, ui};
+use crate::{settings, theme, ui, window_state};
 
 gpui_kit::actions!(braydr, [Send, Dismiss, OpenSettings, FindInChannel]);
 
@@ -66,6 +66,7 @@ pub struct Workspace {
     pub overlay: Option<Overlay>,
     pub sidebar_open: bool,
     pointer_down: bool,
+    bounds_changed: bool,
     silent: bool,
     highlight: Option<String>,
     pub copied: Option<String>,
@@ -91,6 +92,7 @@ impl Workspace {
             overlay: None,
             sidebar_open: true,
             pointer_down: false,
+            bounds_changed: false,
             silent: false,
             highlight: None,
             copied: None,
@@ -130,6 +132,9 @@ impl Workspace {
         // Reaching a timeline's bottom counts only while the window has focus.
         cx.observe_window_activation(window, |_, _, cx| cx.notify())
             .detach();
+        // A drag reports every step, so the poll saves the latest rather than each one.
+        cx.observe_window_bounds(window, |this, _, _| this.bounds_changed = true)
+            .detach();
         let weak = cx.entity().downgrade();
         let handle = window.window_handle();
         cx.on_system_notification_response(move |response, cx| {
@@ -144,6 +149,9 @@ impl Workspace {
     }
 
     fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if std::mem::take(&mut self.bounds_changed) {
+            window_state::save(&self.rt, window, cx);
+        }
         let revision = self.rt.revision();
         if revision != self.revision {
             self.revision = revision;
@@ -679,7 +687,7 @@ impl Workspace {
                     .flex()
                     .items_center()
                     .justify_end()
-                    .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+                    .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
                     .child(self.sidebar_toggle(cx)),
             )
             .child(
@@ -995,7 +1003,7 @@ impl Workspace {
             .flex()
             .items_center()
             .justify_between()
-            .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+            .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
             .child(
                 div()
                     .flex()
@@ -1086,8 +1094,7 @@ impl Workspace {
             return sheet.child(self.render_create(form, cx));
         }
         if self.selected.is_none() {
-            return sheet
-                .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move());
+            return sheet.on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down);
         }
         let draft = self.current_draft(window, cx);
         let (Some(timeline), Some(channel)) = (&self.timeline, self.selected_row()) else {
@@ -1261,7 +1268,7 @@ impl Workspace {
             .flex()
             .items_center()
             .justify_between()
-            .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+            .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
             .child(
                 div()
                     .text_size(px(13.))
@@ -1486,6 +1493,7 @@ impl Workspace {
                             this.open_thread(parent, window, cx);
                         }
                     }
+                    "resize" => window.resize(gpui_kit::size(px(1100.), px(750.))),
                     "unresolved" => this.open_unresolved(window, cx),
                     "menu" => this.open_menu(window, cx),
                     "rename" => this.open_rename(window, cx),

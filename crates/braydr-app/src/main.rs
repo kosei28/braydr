@@ -3,6 +3,7 @@ mod settings;
 mod theme;
 mod timeline;
 mod ui;
+mod window_state;
 mod workspace;
 
 #[cfg(test)]
@@ -22,8 +23,8 @@ use braydr_runtime::{Runtime, terminal_labels};
 use braydr_store::Store;
 use gpui_kit::component::theme::{Theme, ThemeMode};
 use gpui_kit::{
-    App, AppContext as _, AssetSource, Bounds, KeyBinding, Menu, MenuItem, SharedString,
-    TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
+    App, AppContext as _, AssetSource, KeyBinding, Menu, MenuItem, SharedString, TitlebarOptions,
+    WindowOptions, point, px,
 };
 
 fn data_dir() -> PathBuf {
@@ -204,9 +205,10 @@ fn main() {
                 settings::open(&runtime, &Rc::new(RefCell::new(None)), cx);
                 return;
             }
-            let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
+            let (bounds, display_id) = window_state::restore(&runtime, cx);
             let options = WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                window_bounds: Some(bounds),
+                display_id,
                 titlebar: Some(TitlebarOptions {
                     title: Some("Braydr".into()),
                     appears_transparent: true,
