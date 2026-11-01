@@ -63,3 +63,12 @@ pub fn warn_tint() -> Rgba {
 pub fn white() -> Hsla {
     gpui_kit::white()
 }
+pub fn match_mark() -> Rgba {
+    c(0xFFEDB3)
+}
+pub fn dim() -> Rgba {
+    rgba(0x00000033)
+}
+
+pub const SANS: &str = "IBM Plex Sans JP";
+pub const MONO: &str = "IBM Plex Mono";

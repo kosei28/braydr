@@ -420,3 +420,80 @@ fn ids_are_time_ordered_and_migrations_are_idempotent() {
     assert_eq!(s.channel(&ch).unwrap().name, "永続");
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn settings_default_and_persist() {
+    let mut store = Store::in_memory().unwrap();
+    assert_eq!(store.settings().unwrap(), Settings::default());
+    let changed = Settings {
+        default_command: "claude --model opus".into(),
+        default_prompt: "/x".into(),
+        nudge_minutes: 15,
+    };
+    store.save_settings(&changed).unwrap();
+    store.save_settings(&changed).unwrap();
+    assert_eq!(store.settings().unwrap(), changed);
+}
+
+#[test]
+fn search_count_covers_all_pages() {
+    let (mut store, channel) = channel_for_notifications();
+    let mut last = None;
+    for _ in 0..3 {
+        last = Some(
+            store
+                .agent_post_main(&channel, "ログイン修正", last.as_deref())
+                .unwrap()
+                .message_id,
+        );
+    }
+    assert_eq!(store.search_count(&channel, "ログイン").unwrap(), 3);
+    assert_eq!(store.search_count(&channel, "修").unwrap(), 3);
+    assert_eq!(store.search_count(&channel, "ない").unwrap(), 0);
+}
+
+fn channel_for_notifications() -> (Store, String) {
+    let mut store = Store::in_memory().unwrap();
+    let launch = LaunchConfig {
+        cwd: "/tmp".into(),
+        command: "claude".into(),
+        prompt: "/braydr".into(),
+    };
+    let channel = store.create_channel("c", &launch).unwrap().channel_id;
+    (store, channel)
+}
+
+#[test]
+fn agent_messages_after_skips_users_and_older() {
+    let (mut store, channel) = channel_for_notifications();
+    let first = store.user_post_main(&channel, "依頼").unwrap();
+    let watermark = store.newest_message_id().unwrap();
+    assert_eq!(watermark.as_deref(), Some(first.message_id.as_str()));
+    let reply = store
+        .agent_post_main(&channel, "返事", Some(&first.message_id))
+        .unwrap();
+    store.user_post_main(&channel, "次").unwrap();
+    let found = store.agent_messages_after(watermark.as_deref()).unwrap();
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].message_id, reply.message_id);
+    assert!(
+        store
+            .agent_messages_after(Some(&reply.message_id))
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn finds_the_channel_of_a_thread() {
+    let (mut store, channel) = channel_for_notifications();
+    let parent = store.user_post_main(&channel, "親").unwrap();
+    let reply = store
+        .user_reply(&channel, &parent.message_id, "返信")
+        .unwrap();
+    assert_eq!(
+        store.channel_of_thread(&reply.thread.thread_id).unwrap(),
+        Some(channel)
+    );
+    assert_eq!(store.channel_of_thread("missing").unwrap(), None);
+}

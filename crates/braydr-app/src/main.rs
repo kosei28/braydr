@@ -1,20 +1,30 @@
+mod overlay;
+mod settings;
 mod theme;
+mod timeline;
+mod ui;
 mod workspace;
 
+#[cfg(test)]
+mod tests;
+
+use std::borrow::Cow;
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::process::Command;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
-use braydr_herdr::{Client, default_socket};
-use braydr_runtime::Runtime;
+use braydr_core::Settings;
+use braydr_herdr::{Client, Event, default_socket};
+use braydr_runtime::{Runtime, terminal_labels};
 use braydr_store::Store;
+use gpui_kit::component::theme::{Theme, ThemeMode};
 use gpui_kit::{
-    App, AppContext as _, Bounds, KeyBinding, TitlebarOptions, WindowBounds, WindowOptions, point,
-    px, size,
+    App, AppContext as _, AssetSource, Bounds, KeyBinding, Menu, MenuItem, SharedString,
+    TitlebarOptions, WindowBounds, WindowOptions, point, px, size,
 };
-
-const NUDGE_INTERVAL_MS: i64 = 5 * 60 * 1000;
 
 fn data_dir() -> PathBuf {
     let home = PathBuf::from(std::env::var_os("HOME").unwrap_or_default());
@@ -45,12 +55,37 @@ fn start_core() {
     }
 }
 
+/// Keeps session states current from herdr-core's events, reconnecting when it goes away.
+fn watch_events(core: &Client, runtime: &Runtime<Client>) {
+    loop {
+        match core.subscribe(&terminal_labels()) {
+            Ok(mut events) => {
+                let _ = runtime.refresh_sessions();
+                loop {
+                    match events.next_event() {
+                        Ok(Event::Heartbeat) => {}
+                        Ok(Event::Changed { .. } | Event::Missed(_)) => {
+                            let _ = runtime.refresh_sessions();
+                        }
+                        Err(error) => {
+                            tracing::info!(%error, "herdr-core events ended");
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(error) => tracing::debug!(%error, "cannot subscribe to herdr-core"),
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+}
+
 fn runtime() -> Arc<Runtime<Client>> {
     let dir = data_dir();
     let store = Store::open(dir.join("braydr.db")).expect("open the database");
     start_core();
     let core = Arc::new(Client::new(default_socket("default")));
-    let runtime = Runtime::new(store, core, Box::new(clock));
+    let runtime = Runtime::new(store, core.clone(), Box::new(clock));
     if let Err(error) = runtime.reconcile() {
         tracing::warn!(?error, "cannot reconcile sessions");
     }
@@ -65,21 +100,110 @@ fn runtime() -> Arc<Runtime<Client>> {
     std::thread::spawn(move || {
         loop {
             std::thread::sleep(Duration::from_secs(5));
-            if let Err(error) = ticking.tick(NUDGE_INTERVAL_MS) {
+            // Events can be missed while the core restarts, so also check periodically.
+            if let Err(error) = ticking.refresh_sessions() {
+                tracing::warn!(?error, "cannot refresh sessions");
+            }
+            let minutes = ticking
+                .store()
+                .settings()
+                .map_or(Settings::default().nudge_minutes, |s| s.nudge_minutes);
+            if let Err(error) = ticking.tick(minutes * 60 * 1000) {
                 tracing::warn!(?error, "nudge tick failed");
             }
         }
     });
+    let watching = runtime.clone();
+    std::thread::spawn(move || watch_events(&core, &watching));
     runtime
+}
+
+/// Lucide icons the kit does not bundle by default, on top of its assets.
+struct Assets;
+
+impl AssetSource for Assets {
+    fn load(&self, path: &str) -> gpui_kit::Result<Option<Cow<'static, [u8]>>> {
+        let extra: Option<&'static [u8]> = match path {
+            "icons/corner-up-left.svg" => {
+                Some(include_bytes!("../assets/icons/corner-up-left.svg"))
+            }
+            "icons/pencil.svg" => Some(include_bytes!("../assets/icons/pencil.svg")),
+            "icons/rotate-ccw.svg" => Some(include_bytes!("../assets/icons/rotate-ccw.svg")),
+            "icons/x.svg" => Some(include_bytes!("../assets/icons/x.svg")),
+            _ => None,
+        };
+        match extra {
+            Some(bytes) => Ok(Some(Cow::Borrowed(bytes))),
+            None => gpui_kit::assets::Assets.load(path),
+        }
+    }
+
+    fn list(&self, path: &str) -> gpui_kit::Result<Vec<SharedString>> {
+        gpui_kit::assets::Assets.list(path)
+    }
+}
+
+const FONTS: [&[u8]; 4] = [
+    include_bytes!("../assets/fonts/IBMPlexSansJP-Regular.ttf"),
+    include_bytes!("../assets/fonts/IBMPlexSansJP-Medium.ttf"),
+    include_bytes!("../assets/fonts/IBMPlexSansJP-SemiBold.ttf"),
+    include_bytes!("../assets/fonts/IBMPlexMono-Regular.ttf"),
+];
+
+gpui_kit::actions!(braydr, [Quit]);
+
+/// Light only, with the design's fonts and quiet placeholders.
+fn apply_theme(cx: &mut App) {
+    if let Err(error) = cx
+        .text_system()
+        .add_fonts(FONTS.iter().map(|font| Cow::Borrowed(*font)).collect())
+    {
+        tracing::error!(%error, "cannot load the fonts");
+    }
+    Theme::change(ThemeMode::Light, None, cx);
+    let theme = Theme::global_mut(cx);
+    theme.font_family = theme::SANS.into();
+    theme.mono_font_family = theme::MONO.into();
+    theme.mono_font_size = px(12.5);
+    theme.foreground = theme::ink().into();
+    theme.muted_foreground = theme::ink4().into();
+    theme.caret = theme::ink().into();
+}
+
+fn bind_keys(cx: &mut App) {
+    cx.bind_keys([
+        KeyBinding::new("cmd-enter", workspace::Send, Some("Input")),
+        KeyBinding::new("escape", workspace::Dismiss, None),
+        KeyBinding::new("cmd-f", workspace::FindInChannel, None),
+        KeyBinding::new("cmd-,", workspace::OpenSettings, None),
+        KeyBinding::new("cmd-q", Quit, None),
+    ]);
 }
 
 fn main() {
     let runtime = runtime();
     gpui_kit::application()
-        .with_assets(gpui_kit::assets::Assets)
+        .with_assets(Assets)
         .run(move |cx: &mut App| {
             gpui_kit::init(cx);
-            cx.bind_keys([KeyBinding::new("cmd-enter", workspace::Send, Some("Input"))]);
+            apply_theme(cx);
+            bind_keys(cx);
+            let settings_window = Rc::new(RefCell::new(None));
+            let settings_runtime = runtime.clone();
+            cx.on_action(move |_: &workspace::OpenSettings, cx| {
+                settings::open(&settings_runtime, &settings_window, cx);
+            });
+            cx.on_action(|_: &Quit, cx| cx.quit());
+            cx.set_menus([Menu::new("Braydr").items([
+                MenuItem::action("設定…", workspace::OpenSettings),
+                MenuItem::separator(),
+                MenuItem::action("Braydr を終了", Quit),
+            ])]);
+            #[cfg(feature = "screenshot")]
+            if std::env::var("BRAYDR_SCREENSHOT_STATE").as_deref() == Ok("settings") {
+                settings::open(&runtime, &Rc::new(RefCell::new(None)), cx);
+                return;
+            }
             let bounds = Bounds::centered(None, size(px(1440.), px(900.)), cx);
             let options = WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -92,6 +216,11 @@ fn main() {
                 ..Default::default()
             };
             gpui_kit::open_window(options, cx, |window, cx| {
+                // The app has one main window; notifications need it, so closing it quits.
+                window.on_window_should_close(cx, |_, cx| {
+                    cx.quit();
+                    true
+                });
                 cx.new(|cx| workspace::Workspace::new(runtime.clone(), window, cx))
             })
             .expect("open the window");

@@ -2,7 +2,8 @@
 
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[r#"
+const MIGRATIONS: &[&str] = &[
+    r#"
         CREATE TABLE channels (
             channel_id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -56,7 +57,14 @@ const MIGRATIONS: &[&str] = &[r#"
         CREATE TRIGGER messages_fts_insert AFTER INSERT ON messages BEGIN
             INSERT INTO messages_fts(rowid, text) VALUES (new.rowid, new.text);
         END;
-        "#];
+        "#,
+    r#"
+        CREATE TABLE settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        "#,
+];
 
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;

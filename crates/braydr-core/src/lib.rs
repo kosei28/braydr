@@ -7,6 +7,7 @@ pub mod notification;
 pub mod notify;
 pub mod read;
 pub mod schedule;
+pub mod text;
 pub mod validate;
 
 pub use error::{Error, Result};

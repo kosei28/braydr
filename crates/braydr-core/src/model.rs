@@ -161,3 +161,21 @@ mod tests {
         assert_eq!(clamp_limit(Some(500), 50), 100);
     }
 }
+
+/// App settings (`docs/product-spec.md` 4.9).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Settings {
+    pub default_command: String,
+    pub default_prompt: String,
+    pub nudge_minutes: i64,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            default_command: crate::launch::DEFAULT_COMMAND.to_owned(),
+            default_prompt: crate::launch::DEFAULT_PROMPT.to_owned(),
+            nudge_minutes: 5,
+        }
+    }
+}

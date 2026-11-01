@@ -148,6 +148,25 @@ fn set_read(conn: &Connection, scope: Scope<'_>, message_id: &str, now: i64) -> 
     Ok(())
 }
 
+/// Trigram needs 3 characters, so shorter queries use `LIKE`. `?2` binds the returned pattern.
+fn search_source(query: &str) -> (&'static str, String) {
+    if query.chars().count() >= 3 {
+        (
+            "messages_fts JOIN messages m ON messages_fts.rowid = m.rowid WHERE messages_fts MATCH ?2",
+            format!("\"{}\"", query.replace('"', "\"\"")),
+        )
+    } else {
+        let escaped = query
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_");
+        (
+            "messages m WHERE m.text LIKE ?2 ESCAPE '\\'",
+            format!("%{escaped}%"),
+        )
+    }
+}
+
 fn scope_key(scope: Scope<'_>) -> (&'static str, &str) {
     match scope {
         Scope::Main { channel_id } => ("channel", channel_id),
@@ -504,8 +523,7 @@ impl Store {
             .db()
     }
 
-    /// Full-text search over one channel, newest first. Trigram needs 3 characters, so shorter
-    /// queries use `LIKE`.
+    /// Full-text search over one channel, newest first.
     pub fn search(
         &self,
         channel_id: &str,
@@ -517,21 +535,7 @@ impl Store {
         self.channel(channel_id)?;
         let limit = clamp_limit(limit, 20);
         let before = decode_message_cursor(cursor)?;
-        let (source, pattern) = if query.chars().count() >= 3 {
-            (
-                "messages_fts JOIN messages m ON messages_fts.rowid = m.rowid WHERE messages_fts MATCH ?2",
-                format!("\"{}\"", query.replace('"', "\"\"")),
-            )
-        } else {
-            let escaped = query
-                .replace('\\', "\\\\")
-                .replace('%', "\\%")
-                .replace('_', "\\_");
-            (
-                "messages m WHERE m.text LIKE ?2 ESCAPE '\\'",
-                format!("%{escaped}%"),
-            )
-        };
+        let (source, pattern) = search_source(query);
         let mut statement = self
             .conn
             .prepare(&format!(
@@ -560,6 +564,96 @@ impl Store {
             items,
             has_more,
             next_cursor,
+        })
+    }
+
+    /// How many messages `search` finds in total.
+    pub fn search_count(&self, channel_id: &str, query: &str) -> Result<i64> {
+        validate::search_query(query)?;
+        let (source, pattern) = search_source(query);
+        self.conn
+            .query_row(
+                &format!("SELECT count(*) FROM {source} AND m.channel_id = ?1"),
+                params![channel_id, pattern],
+                |row| row.get(0),
+            )
+            .db()
+    }
+
+    // Native notifications
+
+    /// The newest message in any channel; agent messages after it have not been announced.
+    pub fn newest_message_id(&self) -> Result<Option<String>> {
+        self.conn
+            .query_row("SELECT max(message_id) FROM messages", [], |row| row.get(0))
+            .db()
+    }
+
+    /// Agent messages in any channel after `after`, oldest first.
+    pub fn agent_messages_after(&self, after: Option<&str>) -> Result<Vec<Message>> {
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {MESSAGE_COLUMNS} FROM messages m
+                 WHERE m.author = 'agent' AND (?1 IS NULL OR m.message_id > ?1)
+                 ORDER BY m.message_id"
+            ))
+            .db()?;
+        statement
+            .query_map([after], message_from)
+            .db()?
+            .collect::<rusqlite::Result<_>>()
+            .db()
+    }
+
+    /// The thread's channel, for opening a thread from its id alone.
+    pub fn channel_of_thread(&self, thread_id: &str) -> Result<Option<String>> {
+        self.conn
+            .query_row(
+                "SELECT channel_id FROM threads WHERE thread_id = ?1",
+                [thread_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .db()
+    }
+
+    // Settings
+
+    pub fn settings(&self) -> Result<Settings> {
+        let read = |key: &str| -> Result<Option<String>> {
+            self.conn
+                .query_row("SELECT value FROM settings WHERE key = ?1", [key], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .db()
+        };
+        let defaults = Settings::default();
+        Ok(Settings {
+            default_command: read("default_command")?.unwrap_or(defaults.default_command),
+            default_prompt: read("default_prompt")?.unwrap_or(defaults.default_prompt),
+            nudge_minutes: read("nudge_minutes")?
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(defaults.nudge_minutes),
+        })
+    }
+
+    pub fn save_settings(&mut self, settings: &Settings) -> Result<()> {
+        self.write(|tx, _| {
+            for (key, value) in [
+                ("default_command", settings.default_command.clone()),
+                ("default_prompt", settings.default_prompt.clone()),
+                ("nudge_minutes", settings.nudge_minutes.to_string()),
+            ] {
+                tx.execute(
+                    "INSERT INTO settings (key, value) VALUES (?1, ?2)
+                     ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                    params![key, value],
+                )
+                .db()?;
+            }
+            Ok(())
         })
     }
 

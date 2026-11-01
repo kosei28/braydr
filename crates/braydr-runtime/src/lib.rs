@@ -1,6 +1,6 @@
 //! Sessions, delivery, and nudges, without any UI (`docs/product-spec.md` 7, 8, and 10).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -54,6 +54,16 @@ struct ChannelRuntime {
     watch: ResponseWatch,
 }
 
+const STOPPED: SessionState = SessionState::Stopped {
+    reason: None,
+    exit_code: None,
+};
+
+/// The labels on every Braydr terminal, for subscribing to their events.
+pub fn terminal_labels() -> BTreeMap<String, String> {
+    labels_for(None)
+}
+
 pub struct Runtime<C: Core + 'static> {
     store: Arc<Mutex<Store>>,
     core: Arc<C>,
@@ -61,6 +71,8 @@ pub struct Runtime<C: Core + 'static> {
     clock: Box<dyn Fn() -> i64 + Send + Sync>,
     retry_delay: Duration,
     revision: AtomicU64,
+    states: Mutex<HashMap<String, SessionState>>,
+    start_failed: Mutex<HashSet<String>>,
 }
 
 fn labels_for(channel_id: Option<&str>) -> BTreeMap<String, String> {
@@ -80,6 +92,8 @@ impl<C: Core + 'static> Runtime<C> {
             clock,
             retry_delay: Duration::from_millis(500),
             revision: AtomicU64::new(1),
+            states: Mutex::new(HashMap::new()),
+            start_failed: Mutex::new(HashSet::new()),
         })
     }
 
@@ -88,7 +102,8 @@ impl<C: Core + 'static> Runtime<C> {
         self.revision.load(Ordering::Relaxed)
     }
 
-    fn bump(&self) {
+    /// Tells the UI to read the data again.
+    pub fn bump(&self) {
         self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
@@ -124,6 +139,7 @@ impl<C: Core + 'static> Runtime<C> {
                 SessionError::Core(error) => Some(error),
                 _ => None,
             });
+        self.bump();
         Ok((self.store().channel(&channel.channel_id)?, failure))
     }
 
@@ -135,12 +151,75 @@ impl<C: Core + 'static> Runtime<C> {
             env: BTreeMap::from([(ENV_CHANNEL_ID.to_owned(), channel_id.to_owned())]),
             labels: labels_for(Some(channel_id)),
         };
-        let terminal = self.core.run(&spec)?;
+        let terminal = match self.core.run(&spec) {
+            Ok(terminal) => terminal,
+            Err(error) => {
+                self.set_cached_state(channel_id, STOPPED);
+                self.start_failed
+                    .lock()
+                    .expect("the start_failed lock is not poisoned")
+                    .insert(channel_id.to_owned());
+                return Err(error.into());
+            }
+        };
         self.store()
             .set_session(channel_id, Some(&terminal.address))?;
+        self.start_failed
+            .lock()
+            .expect("the start_failed lock is not poisoned")
+            .remove(channel_id);
+        self.set_cached_state(channel_id, SessionState::Running);
         let now = self.now();
         self.with_channel(channel_id, |state| state.watch.expect(now));
         Ok(terminal)
+    }
+
+    fn set_cached_state(&self, channel_id: &str, state: SessionState) {
+        let previous = self
+            .states
+            .lock()
+            .expect("the states lock is not poisoned")
+            .insert(channel_id.to_owned(), state.clone());
+        if previous.as_ref() != Some(&state) {
+            self.bump();
+        }
+    }
+
+    /// The last known state, without asking herdr-core. Safe to call while rendering.
+    pub fn cached_state(&self, channel_id: &str) -> SessionState {
+        self.states
+            .lock()
+            .expect("the states lock is not poisoned")
+            .get(channel_id)
+            .cloned()
+            .unwrap_or(STOPPED)
+    }
+
+    /// Whether the last attempt to start this channel's session failed.
+    pub fn start_failed(&self, channel_id: &str) -> bool {
+        self.start_failed
+            .lock()
+            .expect("the start_failed lock is not poisoned")
+            .contains(channel_id)
+    }
+
+    /// Asks herdr-core for every channel's state. An unreachable core counts as stopped.
+    pub fn refresh_sessions(&self) -> SessionResult<()> {
+        let channels = self.store().channels()?;
+        for channel in channels {
+            let state = self
+                .session_state(&channel.channel_id)
+                .unwrap_or_else(|error| {
+                    tracing::warn!(
+                        channel_id = channel.channel_id,
+                        ?error,
+                        "cannot read the session"
+                    );
+                    STOPPED
+                });
+            self.set_cached_state(&channel.channel_id, state);
+        }
+        Ok(())
     }
 
     /// `docs/product-spec.md` 8.2.
@@ -161,10 +240,7 @@ impl<C: Core + 'static> Runtime<C> {
 
     pub fn session_state(&self, channel_id: &str) -> SessionResult<SessionState> {
         let Some(address) = self.store().channel(channel_id)?.session_id else {
-            return Ok(SessionState::Stopped {
-                reason: None,
-                exit_code: None,
-            });
+            return Ok(STOPPED);
         };
         match self.core.get(&address) {
             Ok(terminal) if terminal.is_live() => Ok(SessionState::Running),
@@ -172,10 +248,7 @@ impl<C: Core + 'static> Runtime<C> {
                 reason: terminal.reason,
                 exit_code: terminal.exit_code,
             }),
-            Err(error) if error.kind() == Some("not_found") => Ok(SessionState::Stopped {
-                reason: None,
-                exit_code: None,
-            }),
+            Err(error) if error.kind() == Some("not_found") => Ok(STOPPED),
             Err(error) => Err(error.into()),
         }
     }
@@ -208,7 +281,7 @@ impl<C: Core + 'static> Runtime<C> {
                 .map(|terminal| terminal.address.as_str());
             self.store().set_session(&channel.channel_id, address)?;
         }
-        Ok(())
+        self.refresh_sessions()
     }
 
     // Posts

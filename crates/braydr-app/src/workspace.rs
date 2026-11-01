@@ -1,238 +1,97 @@
 //! The window: sidebar, main sheet, and right sheet (`docs/design-system.md` 3 and 4).
 
-use std::sync::Arc;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-use braydr_core::read::{self, Laid};
-use braydr_core::{Author, LaunchConfig, Message, Scope, StateAction, StateEvent, Thread, launch};
-use braydr_herdr::Client;
-use braydr_runtime::{Runtime, SessionState};
-use chrono::{Local, TimeZone};
-use gpui_kit::component::input::{Input, InputState, Textarea, TextareaState};
+use braydr_core::notify::{self, View};
+use braydr_core::text::head;
+use braydr_core::{Author, LaunchConfig, Message, StateAction, Thread, validate};
+use braydr_runtime::SessionState;
+use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaState};
 use gpui_kit::component::text::TextView;
 use gpui_kit::{
-    AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, InteractiveElement as _,
-    IntoElement, ListAlignment, ListOffset, ListState, MouseButton, ParentElement as _,
-    PathPromptOptions, Render, SharedString, StatefulInteractiveElement as _, Styled as _, Window,
-    div, list, px,
+    AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, FocusHandle, Focusable as _,
+    FontWeight, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Render,
+    SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, div,
+    list, px,
 };
 
-use crate::theme;
+use crate::overlay::{LaunchFields, Overlay};
+use crate::timeline::{OwnedScope, Row, Rt, ThreadLink, Timeline};
+use crate::{settings, theme, ui};
 
-gpui_kit::actions!(braydr, [Send]);
+gpui_kit::actions!(braydr, [Send, Dismiss, OpenSettings, FindInChannel]);
 
-type Rt = Arc<Runtime<Client>>;
-
-fn time(ms: i64) -> String {
-    Local
-        .timestamp_millis_opt(ms)
-        .single()
-        .map_or_else(String::new, |at| at.format("%H:%M").to_string())
-}
-
-fn owned(scope: Scope<'_>) -> OwnedScope {
-    match scope {
-        Scope::Main { channel_id } => OwnedScope::Main(channel_id.to_owned()),
-        Scope::Thread { thread_id } => OwnedScope::Thread(thread_id.to_owned()),
-    }
-}
-
-#[derive(Clone, PartialEq)]
-enum OwnedScope {
-    Main(String),
-    Thread(String),
-}
-
-impl OwnedScope {
-    fn as_scope(&self) -> Scope<'_> {
-        match self {
-            OwnedScope::Main(channel_id) => Scope::Main { channel_id },
-            OwnedScope::Thread(thread_id) => Scope::Thread { thread_id },
-        }
-    }
-}
-
-#[derive(Clone)]
-enum Row {
-    Message(Message),
-    Event(StateEvent),
-    Unread,
-}
-
-/// One scrolling timeline and its read tracking.
-struct Timeline {
-    scope: OwnedScope,
-    rows: Vec<Row>,
-    list: ListState,
-    divider_before: Option<String>,
-}
-
-impl Timeline {
-    fn open(rt: &Rt, scope: OwnedScope) -> Self {
-        let divider_before = rt.store().first_unread(scope.as_scope()).ok().flatten();
-        // Main reads from the bottom up; a thread reads down from its parent.
-        let alignment = match scope {
-            OwnedScope::Main(_) => ListAlignment::Bottom,
-            OwnedScope::Thread(_) => ListAlignment::Top,
-        };
-        let mut timeline = Self {
-            scope,
-            rows: Vec::new(),
-            list: ListState::new(0, alignment, px(600.)),
-            divider_before,
-        };
-        timeline.reload(rt);
-        match timeline.divider_row() {
-            Some(row) => timeline.list.scroll_to(ListOffset {
-                item_ix: row,
-                offset_in_item: px(0.),
-            }),
-            None => timeline.list.scroll_to_end(),
-        }
-        timeline
-    }
-
-    fn divider_row(&self) -> Option<usize> {
-        self.rows.iter().position(|row| matches!(row, Row::Unread))
-    }
-
-    fn reload(&mut self, rt: &Rt) {
-        let mut messages = Vec::new();
-        let mut cursor = None;
-        loop {
-            let Ok(page) =
-                rt.store()
-                    .list_posts(self.scope.as_scope(), cursor.as_deref(), Some(100))
-            else {
-                break;
-            };
-            let more = page.next_cursor.clone();
-            messages.splice(0..0, page.items);
-            match more {
-                Some(next) => cursor = Some(next),
-                None => break,
-            }
-        }
-        let events = match &self.scope {
-            OwnedScope::Thread(thread_id) => rt.store().state_events(thread_id).unwrap_or_default(),
-            OwnedScope::Main(_) => Vec::new(),
-        };
-        let mut rows = Vec::with_capacity(messages.len() + events.len() + 1);
-        let mut events = events.into_iter().peekable();
-        for message in messages {
-            while events
-                .peek()
-                .is_some_and(|event| event.event_id < message.message_id)
-            {
-                rows.push(Row::Event(events.next().expect("peeked")));
-            }
-            if self.divider_before.as_deref() == Some(message.message_id.as_str()) {
-                rows.push(Row::Unread);
-            }
-            rows.push(Row::Message(message));
-        }
-        rows.extend(events.map(Row::Event));
-        let (old, new) = (self.rows.len(), rows.len());
-        let changed = old != new;
-        self.rows = rows;
-        if changed {
-            let at_end = self.is_at_bottom();
-            self.list.splice(0..old, new);
-            if at_end {
-                self.list.scroll_to_end();
-            }
-        } else {
-            self.list.remeasure();
-        }
-    }
-
-    fn is_at_bottom(&self) -> bool {
-        let Some(last) = self.rows.len().checked_sub(1) else {
-            return true;
-        };
-        let viewport = self.list.viewport_bounds();
-        self.list
-            .bounds_for_item(last)
-            .is_some_and(|bounds| bounds.bottom() <= viewport.bottom() + px(2.))
-    }
-
-    /// Advances the read position to what the user has actually seen.
-    fn track_read(&self, rt: &Rt) {
-        let viewport = self.list.viewport_bounds();
-        let mut laid = Vec::new();
-        let mut ix = self.list.logical_scroll_top().item_ix;
-        while let (Some(row), Some(bounds)) = (self.rows.get(ix), self.list.bounds_for_item(ix)) {
-            if bounds.top() >= viewport.bottom() {
-                break;
-            }
-            if let Row::Message(message) = row {
-                laid.push((message.message_id.clone(), f32::from(bounds.bottom())));
-            }
-            ix += 1;
-        }
-        let refs: Vec<Laid<'_>> = laid
-            .iter()
-            .map(|(id, bottom)| Laid {
-                message_id: id,
-                bottom: *bottom,
-            })
-            .collect();
-        if let Some(seen) = read::newest_seen(&refs, f32::from(viewport.bottom())) {
-            let scope = self.scope.as_scope();
-            let current = rt.store().read_position(scope).ok().flatten();
-            if read::advance(current.as_deref(), Some(seen)) != current.as_deref() {
-                let _ = rt.store().mark_read(scope, seen);
-            }
-        }
-    }
-}
+const BODY_LINE_HEIGHT: f32 = 23.;
+const NOTIFICATION_CHARS: usize = 120;
 
 /// The right sheet: a thread, or a draft reply before the thread exists.
-struct ThreadPane {
+pub struct ThreadPane {
     channel_id: String,
     parent: Message,
     thread: Option<Thread>,
-    timeline: Option<Timeline>,
+    pub timeline: Option<Timeline>,
     input: Entity<TextareaState>,
+    just_reopened: bool,
+    send_failed: bool,
 }
 
-struct ChannelRow {
-    channel: braydr_core::Channel,
+pub struct ChannelRow {
+    pub channel: braydr_core::Channel,
+    pub state: SessionState,
+    pub stopped: bool,
+    pub start_failed: bool,
     unresolved: i64,
     main_unread: bool,
-    stopped: bool,
 }
 
-struct CreateForm {
+pub struct CreateForm {
     name: Entity<InputState>,
-    command: Entity<TextareaState>,
-    prompt: Entity<TextareaState>,
-    cwd: String,
+    pub fields: LaunchFields,
+    error: Option<String>,
 }
 
 pub struct Workspace {
-    rt: Rt,
+    pub rt: Rt,
     revision: u64,
     channels: Vec<ChannelRow>,
-    selected: Option<String>,
-    timeline: Option<Timeline>,
-    input: Entity<TextareaState>,
-    pane: Option<ThreadPane>,
-    create: Option<CreateForm>,
+    pub selected: Option<String>,
+    pub timeline: Option<Timeline>,
+    drafts: HashMap<String, Entity<TextareaState>>,
+    send_failed: bool,
+    pub pane: Option<ThreadPane>,
+    pub create: Option<CreateForm>,
+    pub overlay: Option<Overlay>,
+    pub sidebar_open: bool,
+    pointer_down: bool,
+    silent: bool,
+    highlight: Option<String>,
+    announced_through: Option<String>,
+    pub notified: HashSet<String>,
+    focus: FocusHandle,
 }
 
 impl Workspace {
     pub fn new(rt: Rt, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let input = cx.new(|cx| TextareaState::new(window, cx).placeholder("メッセージ"));
+        let announced_through = rt.store().newest_message_id().ok().flatten();
         let mut this = Self {
             rt,
             revision: 0,
             channels: Vec::new(),
             selected: None,
             timeline: None,
-            input,
+            drafts: HashMap::new(),
+            send_failed: false,
             pane: None,
             create: None,
+            overlay: None,
+            sidebar_open: true,
+            pointer_down: false,
+            silent: false,
+            highlight: None,
+            announced_through,
+            notified: HashSet::new(),
+            focus: cx.focus_handle(),
         };
         this.reload_channels();
         if let Some(first) = this
@@ -240,61 +99,62 @@ impl Workspace {
             .first()
             .map(|row| row.channel.channel_id.clone())
         {
-            this.select(first, cx);
+            this.select(first, window, cx);
         }
-        // Development aid: writes the rendered window to a PNG, then quits.
         #[cfg(feature = "screenshot")]
-        if let Some(path) = std::env::var_os("BRAYDR_SCREENSHOT") {
-            cx.spawn_in(window, async move |this, cx| {
-                if std::env::var_os("BRAYDR_SCREENSHOT_THREAD").is_some() {
-                    cx.background_executor()
-                        .timer(Duration::from_millis(500))
-                        .await;
-                    let _ = this.update_in(cx, |this, window, cx| {
-                        let parent = this.timeline.as_ref().and_then(|timeline| {
-                            timeline.rows.iter().find_map(|row| match row {
-                                Row::Message(m) if m.child_thread_id.is_some() => Some(m.clone()),
-                                _ => None,
-                            })
-                        });
-                        if let Some(parent) = parent {
-                            this.open_thread(parent, window, cx);
-                        }
-                    });
-                }
-                cx.background_executor().timer(Duration::from_secs(2)).await;
-                let _ = cx.update(|window, cx| {
-                    match window.render_to_image() {
-                        Ok(image) => {
-                            let _ = image.save(&path);
-                        }
-                        Err(error) => tracing::error!(%error, "cannot capture"),
-                    }
-                    cx.quit();
-                });
-            })
-            .detach();
-        }
+        this.schedule_screenshot(window, cx);
         // Agents write through the tool socket on another thread.
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             loop {
                 cx.background_executor()
                     .timer(Duration::from_millis(300))
                     .await;
-                let alive = this.update(cx, |this, cx| {
-                    let revision = this.rt.revision();
-                    if revision != this.revision {
-                        this.revision = revision;
-                        this.reload(cx);
-                    }
-                });
-                if alive.is_err() {
+                if this
+                    .update_in(cx, |this, window, cx| this.poll(window, cx))
+                    .is_err()
+                {
                     break;
                 }
             }
         })
         .detach();
+        // Reaching a timeline's bottom counts only while the window has focus.
+        cx.observe_window_activation(window, |_, _, cx| cx.notify())
+            .detach();
+        let weak = cx.entity().downgrade();
+        let handle = window.window_handle();
+        cx.on_system_notification_response(move |response, cx| {
+            let tag = response.tag.to_string();
+            let weak = weak.clone();
+            let _ = handle.update(cx, |_, window, cx| {
+                window.activate_window();
+                let _ = weak.update(cx, |this, cx| this.open_tag(&tag, window, cx));
+            });
+        });
         this
+    }
+
+    fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let revision = self.rt.revision();
+        if revision != self.revision {
+            self.revision = revision;
+            self.announce(window, cx);
+            self.reload(cx);
+        }
+        let silent = self
+            .selected
+            .as_ref()
+            .is_some_and(|id| self.rt.is_silent(id));
+        if silent != self.silent {
+            self.silent = silent;
+            cx.notify();
+        }
+    }
+
+    pub fn selected_row(&self) -> Option<&ChannelRow> {
+        self.channels
+            .iter()
+            .find(|row| Some(&row.channel.channel_id) == self.selected.as_ref())
     }
 
     fn reload_channels(&mut self) {
@@ -308,36 +168,37 @@ impl Workspace {
                 let store = self.rt.store();
                 let unresolved = store.unresolved_count(&id).unwrap_or(0);
                 let main_unread = store
-                    .has_unread(Scope::Main { channel_id: &id })
+                    .has_unread(braydr_core::Scope::Main { channel_id: &id })
                     .unwrap_or(false);
                 drop(store);
-                let stopped = !matches!(self.rt.session_state(&id), Ok(SessionState::Running));
+                let state = self.rt.cached_state(&id);
                 ChannelRow {
+                    stopped: state != SessionState::Running,
+                    start_failed: self.rt.start_failed(&id),
+                    state,
                     channel,
                     unresolved,
                     main_unread,
-                    stopped,
                 }
             })
             .collect();
     }
 
-    fn reload(&mut self, cx: &mut Context<Self>) {
+    pub fn reload(&mut self, cx: &mut Context<Self>) {
         self.reload_channels();
         let rt = self.rt.clone();
         if let Some(timeline) = &mut self.timeline {
             timeline.reload(&rt);
         }
         if let Some(pane) = &mut self.pane {
-            if pane.thread.is_none() {
-                pane.thread = rt
+            pane.thread = match &pane.thread {
+                Some(thread) => rt.store().thread(&pane.channel_id, &thread.thread_id).ok(),
+                None => rt
                     .store()
                     .thread_for_parent(&pane.channel_id, &pane.parent.message_id)
                     .ok()
-                    .flatten();
-            } else if let Some(thread) = &pane.thread {
-                pane.thread = rt.store().thread(&pane.channel_id, &thread.thread_id).ok();
-            }
+                    .flatten(),
+            };
             if let (Some(thread), None) = (&pane.thread, &pane.timeline) {
                 pane.timeline = Some(Timeline::open(
                     &rt,
@@ -347,84 +208,96 @@ impl Workspace {
                 timeline.reload(&rt);
             }
         }
+        self.reload_overlay(cx);
         cx.notify();
     }
 
-    fn select(&mut self, channel_id: String, cx: &mut Context<Self>) {
+    fn select(&mut self, channel_id: String, window: &mut Window, cx: &mut Context<Self>) {
         self.create = None;
         self.pane = None;
+        self.overlay = None;
+        self.send_failed = false;
         self.timeline = Some(Timeline::open(
             &self.rt,
-            owned(Scope::Main {
-                channel_id: &channel_id,
-            }),
+            OwnedScope::Main(channel_id.clone()),
         ));
+        let opened = OwnedScope::Main(channel_id.clone());
         self.selected = Some(channel_id);
+        let draft = self.current_draft(window, cx);
+        draft.update(cx, |state, cx| state.focus(window, cx));
+        self.dismiss_opened(&opened, window, cx);
         cx.notify();
+    }
+
+    /// Each channel keeps its own unsent text.
+    fn current_draft(
+        &mut self,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<TextareaState> {
+        let channel_id = self.selected.clone().unwrap_or_default();
+        if let Some(draft) = self.drafts.get(&channel_id) {
+            return draft.clone();
+        }
+        let draft = cx.new(|cx| {
+            TextareaState::new(window, cx)
+                .auto_grow(1, 8)
+                .placeholder("メッセージ")
+        });
+        cx.subscribe(&draft, |_, _, _: &InputEvent, cx| cx.notify())
+            .detach();
+        self.drafts.insert(channel_id, draft.clone());
+        draft
     }
 
     fn start_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let name = cx.new(|cx| InputState::new(window, cx).placeholder("チャンネル名"));
-        let command =
-            cx.new(|cx| TextareaState::new(window, cx).default_value(launch::DEFAULT_COMMAND));
-        let prompt =
-            cx.new(|cx| TextareaState::new(window, cx).default_value(launch::DEFAULT_PROMPT));
-        let cwd = std::env::var("HOME").unwrap_or_default();
+        cx.subscribe(&name, |_, _, _: &InputEvent, cx| cx.notify())
+            .detach();
+        let defaults = settings::defaults(&self.rt);
+        let fields = LaunchFields::new(
+            LaunchConfig {
+                cwd: std::env::var("HOME").unwrap_or_default(),
+                command: defaults.default_command,
+                prompt: defaults.default_prompt,
+            },
+            window,
+            cx,
+        );
+        cx.subscribe(&fields.command, |_, _, _: &InputEvent, cx| cx.notify())
+            .detach();
         name.update(cx, |state, cx| state.focus(window, cx));
         self.selected = None;
         self.timeline = None;
         self.pane = None;
+        self.overlay = None;
         self.create = Some(CreateForm {
             name,
-            command,
-            prompt,
-            cwd,
+            fields,
+            error: None,
         });
         cx.notify();
     }
 
-    fn pick_directory(&mut self, cx: &mut Context<Self>) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: None,
-        });
-        cx.spawn(async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = paths.await
-                && let Some(path) = paths.into_iter().next()
-            {
-                let _ = this.update(cx, |this, cx| {
-                    if let Some(form) = &mut this.create {
-                        form.cwd = path.display().to_string();
-                        cx.notify();
-                    }
-                });
-            }
-        })
-        .detach();
-    }
-
-    fn submit_create(&mut self, cx: &mut Context<Self>) {
+    fn submit_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(form) = &self.create else { return };
         let name = form.name.read(cx).value().to_string();
-        let launch = LaunchConfig {
-            cwd: form.cwd.clone(),
-            command: form.command.read(cx).value().trim().to_owned(),
-            prompt: form.prompt.read(cx).value().trim().to_owned(),
-        };
-        if name.trim().is_empty() || launch.command.is_empty() {
-            return;
-        }
+        let launch = form.fields.read(cx);
         match self.rt.create_channel(&name, &launch) {
             Ok((channel, failure)) => {
                 if let Some(failure) = failure {
                     tracing::warn!(%failure, "session did not start");
                 }
                 self.reload_channels();
-                self.select(channel.channel_id, cx);
+                self.select(channel.channel_id, window, cx);
             }
-            Err(error) => tracing::warn!(%error, "cannot create the channel"),
+            Err(error) => {
+                tracing::warn!(%error, "cannot create the channel");
+                if let Some(form) = &mut self.create {
+                    form.error = Some(error.to_string());
+                }
+                cx.notify();
+            }
         }
     }
 
@@ -432,24 +305,29 @@ impl Workspace {
         let Some(channel_id) = self.selected.clone() else {
             return;
         };
-        let text = self.input.read(cx).value().to_string();
+        let input = self.current_draft(window, cx);
+        let text = input.read(cx).value().to_string();
         if text.trim().is_empty() {
             return;
         }
         match self.rt.post_main(&channel_id, &text) {
             Ok(_) => {
-                self.input
-                    .update(cx, |state, cx| state.set_value("", window, cx));
+                self.send_failed = false;
+                input.update(cx, |state, cx| state.set_value("", window, cx));
                 if let Some(timeline) = &self.timeline {
                     timeline.list.scroll_to_end();
                 }
             }
-            Err(error) => tracing::warn!(%error, "cannot post"),
+            Err(error) => {
+                tracing::warn!(%error, "cannot post");
+                self.send_failed = true;
+            }
         }
+        cx.notify();
     }
 
     fn send_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(pane) = &self.pane else { return };
+        let Some(pane) = &mut self.pane else { return };
         let text = pane.input.read(cx).value().to_string();
         if text.trim().is_empty() {
             return;
@@ -459,12 +337,23 @@ impl Workspace {
             .rt
             .reply(&pane.channel_id, &pane.parent.message_id, &text)
         {
-            Ok(_) => input.update(cx, |state, cx| state.set_value("", window, cx)),
-            Err(error) => tracing::warn!(%error, "cannot reply"),
+            Ok(_) => {
+                pane.send_failed = false;
+                pane.just_reopened = false;
+                input.update(cx, |state, cx| state.set_value("", window, cx));
+                if let Some(timeline) = &pane.timeline {
+                    timeline.list.scroll_to_end();
+                }
+            }
+            Err(error) => {
+                tracing::warn!(%error, "cannot reply");
+                pane.send_failed = true;
+            }
         }
+        cx.notify();
     }
 
-    fn open_thread(&mut self, parent: Message, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn open_thread(&mut self, parent: Message, window: &mut Window, cx: &mut Context<Self>) {
         let channel_id = parent.channel_id.clone();
         let thread = self
             .rt
@@ -475,32 +364,212 @@ impl Workspace {
         let timeline = thread
             .as_ref()
             .map(|t| Timeline::open(&self.rt, OwnedScope::Thread(t.thread_id.clone())));
-        let input = cx.new(|cx| TextareaState::new(window, cx).placeholder("返信"));
+        let input = cx.new(|cx| {
+            TextareaState::new(window, cx)
+                .auto_grow(1, 8)
+                .placeholder("返信")
+        });
+        cx.subscribe(&input, |_, _, _: &InputEvent, cx| cx.notify())
+            .detach();
         input.update(cx, |state, cx| state.focus(window, cx));
+        let opened = thread
+            .as_ref()
+            .map(|t| OwnedScope::Thread(t.thread_id.clone()));
         self.pane = Some(ThreadPane {
             channel_id,
             parent,
             thread,
             timeline,
             input,
+            just_reopened: false,
+            send_failed: false,
         });
+        if let Some(opened) = opened {
+            self.dismiss_opened(&opened, window, cx);
+        }
+        cx.notify();
+    }
+
+    fn close_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.pane = None;
+        self.focus_composer(window, cx);
         cx.notify();
     }
 
     fn toggle_resolved(&mut self, cx: &mut Context<Self>) {
-        let Some(pane) = &self.pane else { return };
+        let Some(pane) = &mut self.pane else { return };
         let Some(thread) = &pane.thread else { return };
+        let reopening = thread.resolved_at.is_some();
         let mut store = self.rt.store();
-        let result = if thread.resolved_at.is_some() {
+        let result = if reopening {
             store.user_reopen(&pane.channel_id, &thread.thread_id)
         } else {
             store.user_resolve(&pane.channel_id, &thread.thread_id)
         };
         drop(store);
-        if let Err(error) = result {
-            tracing::warn!(%error, "cannot change the thread state");
+        match result {
+            Ok(_) => pane.just_reopened = reopening,
+            Err(error) => tracing::warn!(%error, "cannot change the thread state"),
         }
+        self.rt.bump();
         self.reload(cx);
+    }
+
+    pub fn close_overlay(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.overlay = None;
+        self.focus_composer(window, cx);
+        cx.notify();
+    }
+
+    /// Keeps typing out of the composer behind an open overlay. Keys still reach the workspace.
+    pub fn release_focus(&self, window: &mut Window, cx: &mut Context<Self>) {
+        window.focus(&self.focus, cx);
+    }
+
+    fn focus_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(pane) = &self.pane {
+            let input = pane.input.clone();
+            input.update(cx, |state, cx| state.focus(window, cx));
+        } else if self.selected.is_some() {
+            let draft = self.current_draft(window, cx);
+            draft.update(cx, |state, cx| state.focus(window, cx));
+        } else {
+            window.focus(&self.focus, cx);
+        }
+    }
+
+    /// Esc closes what floats on top, then the creation form. Returns whether it closed anything.
+    fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.overlay.is_some() {
+            self.close_overlay(window, cx);
+            return true;
+        }
+        if self.create.is_some() {
+            self.create = None;
+            match self.channels.first().map(|r| r.channel.channel_id.clone()) {
+                Some(first) => self.select(first, window, cx),
+                None => cx.notify(),
+            }
+            return true;
+        }
+        false
+    }
+
+    /// Highlights a message for a moment, after search.
+    pub fn flash(&mut self, message_id: String, cx: &mut Context<Self>) {
+        self.highlight = Some(message_id.clone());
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(Duration::from_secs(2)).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.highlight.as_deref() == Some(message_id.as_str()) {
+                    this.highlight = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    // Native notifications (`docs/product-spec.md` 4.8)
+
+    fn displayed(&self, scope: &OwnedScope) -> Option<&Timeline> {
+        [
+            self.timeline.as_ref(),
+            self.pane.as_ref().and_then(|p| p.timeline.as_ref()),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|timeline| &timeline.scope == scope)
+    }
+
+    fn view_of(&self, scope: &OwnedScope, window: &Window) -> View {
+        let timeline = self.displayed(scope);
+        View {
+            window_focused: window.is_window_active(),
+            timeline_displayed: timeline.is_some(),
+            at_bottom: timeline.is_some_and(Timeline::is_at_bottom),
+        }
+    }
+
+    /// Announces new agent messages. Runs before timelines reload, so "at the bottom" means the
+    /// user was following along when the message arrived.
+    fn announce(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let store = self.rt.store();
+        let Ok(messages) = store.agent_messages_after(self.announced_through.as_deref()) else {
+            return;
+        };
+        drop(store);
+        for message in messages {
+            self.announced_through = Some(message.message_id.clone());
+            let scope = OwnedScope::of(&message);
+            if !notify::should_notify(self.view_of(&scope, window)) {
+                continue;
+            }
+            let Ok(channel) = self.rt.store().channel(&message.channel_id) else {
+                continue;
+            };
+            let tag = notify::tag(scope.as_scope());
+            cx.show_system_notification(SystemNotification {
+                tag: tag.clone().into(),
+                title: channel.name.into(),
+                body: head(&message.text, NOTIFICATION_CHARS).into(),
+                actions: Vec::new(),
+            });
+            self.notified.insert(tag);
+        }
+    }
+
+    fn dismiss_opened(&mut self, scope: &OwnedScope, window: &Window, cx: &mut Context<Self>) {
+        if notify::should_dismiss(self.view_of(scope, window), true) {
+            let tag = notify::tag(scope.as_scope());
+            cx.dismiss_system_notification(&tag);
+            self.notified.remove(&tag);
+        }
+    }
+
+    fn dismiss_reached(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let scopes: Vec<OwnedScope> = [
+            self.timeline.as_ref(),
+            self.pane.as_ref().and_then(|p| p.timeline.as_ref()),
+        ]
+        .into_iter()
+        .flatten()
+        .map(|timeline| timeline.scope.clone())
+        .collect();
+        for scope in scopes {
+            let tag = notify::tag(scope.as_scope());
+            if self.notified.contains(&tag)
+                && notify::should_dismiss(self.view_of(&scope, window), false)
+            {
+                cx.dismiss_system_notification(&tag);
+                self.notified.remove(&tag);
+            }
+        }
+    }
+
+    /// Opens the timeline a notification points at.
+    pub fn open_tag(&mut self, tag: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(channel_id) = tag.strip_prefix("main:") {
+            self.select(channel_id.to_owned(), window, cx);
+        } else if let Some(thread_id) = tag.strip_prefix("thread:") {
+            let store = self.rt.store();
+            let thread = store
+                .channel_of_thread(thread_id)
+                .ok()
+                .flatten()
+                .and_then(|channel_id| store.thread(&channel_id, thread_id).ok());
+            drop(store);
+            if let Some(thread) = thread {
+                if self.selected.as_ref() != Some(&thread.channel_id) {
+                    self.select(thread.channel_id.clone(), window, cx);
+                }
+                self.open_thread(thread.parent_message, window, cx);
+            }
+        }
+        // The window may not be active yet, but the user just asked for this timeline.
+        cx.dismiss_system_notification(tag);
+        self.notified.remove(tag);
     }
 
     // Rendering
@@ -530,32 +599,36 @@ impl Workspace {
                     .text_color(theme::ink3())
                     .child(row.unresolved.to_string())
             });
-            rows = rows.child(
-                div()
-                    .id(SharedString::from(id.clone()))
-                    .h(px(30.))
-                    .px(px(8.))
-                    .gap(px(8.))
-                    .flex()
-                    .items_center()
-                    .rounded(px(7.))
-                    .when_selected(selected)
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |this, _, _, cx| this.select(id.clone(), cx)))
-                    .child(glyph)
-                    .child(
-                        div()
-                            .flex_1()
-                            .truncate()
-                            .text_size(px(13.))
-                            .text_color(theme::ink())
-                            .child(row.channel.name.clone()),
-                    )
-                    .children(count),
-            );
+            let mut line = div()
+                .id(SharedString::from(id.clone()))
+                .h(px(30.))
+                .px(px(8.))
+                .gap(px(8.))
+                .flex()
+                .items_center()
+                .rounded(px(7.))
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.select(id.clone(), window, cx);
+                }))
+                .child(glyph)
+                .child(
+                    div()
+                        .flex_1()
+                        .truncate()
+                        .text_size(px(13.))
+                        .text_color(theme::ink())
+                        .child(row.channel.name.clone()),
+                )
+                .children(count);
+            if selected {
+                line = line.bg(theme::selected());
+            }
+            rows = rows.child(line);
         }
         div()
             .w(px(240.))
+            .flex_none()
             .h_full()
             .flex()
             .flex_col()
@@ -564,7 +637,11 @@ impl Workspace {
                 div()
                     .h(px(60.))
                     .flex_none()
-                    .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move()),
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+                    .child(self.sidebar_toggle(cx)),
             )
             .child(
                 div()
@@ -580,14 +657,22 @@ impl Workspace {
                         div()
                             .id("new-channel")
                             .cursor_pointer()
-                            .text_size(px(16.))
-                            .child("+")
+                            .child(ui::icon("plus", 16., theme::ink2()))
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.start_create(window, cx)),
                             ),
                     ),
             )
             .child(rows)
+    }
+
+    fn sidebar_toggle(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        ui::icon_button("sidebar-toggle", "panel-left", theme::ink2())
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .on_click(cx.listener(|this, _, _, cx| {
+                this.sidebar_open = !this.sidebar_open;
+                cx.notify();
+            }))
     }
 
     fn message_row(
@@ -618,36 +703,41 @@ impl Workspace {
                     Author::Agent => "エージェント",
                 };
                 let (mark, what) = match event.action {
-                    StateAction::Resolved => ("✓", "が解決"),
-                    StateAction::Reopened => ("↺", "が再開"),
+                    StateAction::Resolved => ("check", "が解決"),
+                    StateAction::Reopened => ("rotate-ccw", "が再開"),
                 };
                 div()
                     .py(px(8.))
                     .flex()
+                    .items_center()
                     .gap(px(6.))
                     .text_size(px(12.))
                     .text_color(theme::ink2())
-                    .child(mark)
+                    .child(ui::icon(mark, 14., theme::ink2()))
                     .child(format!("{who}{what}"))
                     .child(
                         div()
                             .text_color(theme::ink3())
-                            .child(time(event.created_at)),
+                            .child(ui::when(event.created_at)),
                     )
                     .into_any_element()
             }
-            Row::Message(message) => self.message(message, ix, is_main, cx).into_any_element(),
+            Row::Message(message, link) => self
+                .message(message, link.as_deref(), ix, is_main, cx)
+                .into_any_element(),
         }
     }
 
     fn message(
         &self,
         message: &Message,
+        link: Option<&ThreadLink>,
         ix: usize,
         is_main: bool,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
         let group = SharedString::from(format!("message-{}", message.message_id));
+        let markdown_id = SharedString::from(format!("md-{is_main}-{}", message.message_id));
         let body: AnyElement = match message.author {
             Author::User => div()
                 .max_w(px(520.))
@@ -656,40 +746,31 @@ impl Workspace {
                 .px(px(14.))
                 .py(px(9.))
                 .text_size(px(14.))
+                .line_height(px(BODY_LINE_HEIGHT))
                 .text_color(theme::white())
                 .child(message.text.clone())
                 .into_any_element(),
             Author::Agent => div()
                 .w_full()
                 .text_size(px(14.))
+                .line_height(px(BODY_LINE_HEIGHT))
                 .text_color(theme::ink())
-                .child(TextView::markdown(("markdown", ix), message.text.clone()))
+                .child(TextView::markdown(markdown_id, message.text.clone()))
                 .into_any_element(),
         };
         let mut footer = div().h(px(26.)).flex().items_center().gap(px(6.)).child(
             div()
                 .text_size(px(12.))
                 .text_color(theme::ink3())
-                .child(time(message.created_at)),
+                .child(ui::when(message.created_at)),
         );
         if is_main {
-            let thread = message
-                .child_thread_id
-                .as_ref()
-                .and_then(|id| self.rt.store().thread(&message.channel_id, id).ok());
             let parent = message.clone();
             let open = cx
                 .listener(move |this, _, window, cx| this.open_thread(parent.clone(), window, cx));
-            footer = match thread {
-                Some(thread) => {
+            footer = match link {
+                Some(ThreadLink { thread, unread }) => {
                     let done = thread.resolved_at.is_some();
-                    let unread = self
-                        .rt
-                        .store()
-                        .has_unread(Scope::Thread {
-                            thread_id: &thread.thread_id,
-                        })
-                        .unwrap_or(false);
                     let open_now = self
                         .pane
                         .as_ref()
@@ -725,10 +806,10 @@ impl Workspace {
                                     } else {
                                         theme::accent_soft()
                                     })
-                                    .child(time(thread.last_message_at)),
+                                    .child(ui::when(thread.last_message_at)),
                             )
                             .children(
-                                (unread && !open_now)
+                                (*unread && !open_now)
                                     .then(|| div().size(px(7.)).rounded_full().bg(theme::unread())),
                             ),
                     )
@@ -749,7 +830,8 @@ impl Workspace {
                         .on_click(open)
                         .text_size(px(13.))
                         .text_color(theme::ink())
-                        .child("↩ スレッドで返信"),
+                        .child(ui::icon("corner-up-left", 14., theme::ink2()))
+                        .child("スレッドで返信"),
                 ),
             };
         }
@@ -759,21 +841,20 @@ impl Workspace {
                 .id(("copy", ix))
                 .invisible()
                 .group_hover(group.clone(), |style| style.visible())
-                .h(px(26.))
-                .px(px(8.))
+                .size(px(26.))
                 .flex()
                 .items_center()
+                .justify_center()
                 .rounded(px(8.))
                 .bg(theme::tint())
                 .cursor_pointer()
-                .text_size(px(12.))
-                .text_color(theme::ink2())
-                .child("コピー")
+                .child(ui::icon("copy", 14., theme::ink2()))
                 .on_click(move |_, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(text.clone()))
+                    cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
                 }),
         );
-        div()
+        let highlighted = self.highlight.as_deref() == Some(message.message_id.as_str());
+        let mut row = div()
             .group(group)
             .w_full()
             .pb(px(14.))
@@ -782,15 +863,30 @@ impl Workspace {
             .items_start()
             .gap(px(5.))
             .child(body)
-            .child(footer)
+            .child(footer);
+        if highlighted {
+            row = row.bg(theme::match_mark()).rounded(px(8.));
+        }
+        row
     }
 
     fn composer(
         &self,
         state: &Entity<TextareaState>,
+        failed: bool,
         on_send: fn(&mut Self, &mut Window, &mut Context<Self>),
+        window: &Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement + use<> {
+        let focused = state.read(cx).focus_handle(cx).contains_focused(window, cx);
+        let ready = !state.read(cx).value().trim().is_empty();
+        let (button, glyph, color) = if failed {
+            (theme::warn(), "rotate-ccw", theme::white().into())
+        } else if ready {
+            (theme::ink(), "arrow-up", theme::white().into())
+        } else {
+            (theme::tint(), "arrow-up", theme::ink2())
+        };
         div()
             .key_context("Composer")
             .on_action(cx.listener(move |this, _: &Send, window, cx| on_send(this, window, cx)))
@@ -798,20 +894,24 @@ impl Workspace {
             .flex()
             .items_end()
             .gap(px(10.))
-            .pl(px(14.))
-            .pr(px(10.))
-            .py(px(10.))
+            .pl(px(10.))
+            .pr(px(8.))
+            .py(px(8.))
+            .min_h(px(44.))
             .bg(theme::sheet())
             .rounded(px(12.))
             .border_1()
-            .border_color(theme::field_border())
+            .border_color(if focused {
+                theme::accent()
+            } else {
+                theme::field_border()
+            })
             .child(
-                div().flex_1().child(
-                    Textarea::new(state)
-                        .appearance(false)
-                        .bordered(false)
-                        .h(px(44.)),
-                ),
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .pb(px(2.))
+                    .child(ui::plain_textarea(state, 14.)),
             )
             .child(
                 div()
@@ -819,18 +919,104 @@ impl Workspace {
                     .size(px(26.))
                     .flex_none()
                     .rounded_full()
-                    .bg(theme::tint())
+                    .bg(button)
                     .flex()
                     .items_center()
                     .justify_center()
                     .cursor_pointer()
-                    .text_color(theme::ink2())
-                    .child("↑")
+                    .child(ui::icon(glyph, 14., color))
                     .on_click(cx.listener(move |this, _, window, cx| on_send(this, window, cx))),
             )
     }
 
-    fn render_main(&self, window: &mut Window, cx: &mut Context<Self>) -> Div {
+    fn render_header(&self, row: &ChannelRow, cx: &mut Context<Self>) -> Div {
+        let stop_drag = |_: &gpui_kit::MouseDownEvent, _: &mut Window, cx: &mut gpui_kit::App| {
+            cx.stop_propagation();
+        };
+        div()
+            .h(px(44.))
+            .flex_none()
+            .pl(px(if self.sidebar_open { 20. } else { 72. }))
+            .pr(px(12.))
+            .flex()
+            .items_center()
+            .justify_between()
+            .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .children((!self.sidebar_open).then(|| self.sidebar_toggle(cx)))
+                    .child(
+                        div()
+                            .id("channel-menu")
+                            .flex()
+                            .items_center()
+                            .gap(px(4.))
+                            .cursor_pointer()
+                            .on_mouse_down(MouseButton::Left, stop_drag)
+                            .on_click(cx.listener(|this, _, window, cx| this.open_menu(window, cx)))
+                            .child(
+                                div()
+                                    .text_size(px(14.))
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .text_color(theme::ink())
+                                    .child(row.channel.name.clone()),
+                            )
+                            .child(ui::icon("chevron-down", 14., theme::ink3())),
+                    )
+                    .children(row.stopped.then(|| {
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(6.))
+                            .text_size(px(12.))
+                            .text_color(theme::warn())
+                            .child(
+                                div()
+                                    .size(px(9.))
+                                    .rounded_full()
+                                    .border_1()
+                                    .border_color(theme::warn()),
+                            )
+                            .child("停止中")
+                    })),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(4.))
+                    .child(
+                        ui::icon_button("open-search", "search", theme::ink2())
+                            .on_mouse_down(MouseButton::Left, stop_drag)
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.open_search(window, cx)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("open-unresolved")
+                            .h(px(28.))
+                            .px(px(8.))
+                            .flex()
+                            .items_center()
+                            .rounded(px(7.))
+                            .cursor_pointer()
+                            .hover(|style| style.bg(theme::tint()))
+                            .text_size(px(13.))
+                            .text_color(theme::ink2())
+                            .on_mouse_down(MouseButton::Left, stop_drag)
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.open_unresolved(window, cx)),
+                            )
+                            .child(format!("未解決 {}", row.unresolved)),
+                    ),
+            )
+    }
+
+    fn render_main(&mut self, window: &mut Window, cx: &mut Context<Self>) -> Div {
         let sheet = div()
             .flex_1()
             .min_w_0()
@@ -845,52 +1031,36 @@ impl Workspace {
         if let Some(form) = &self.create {
             return sheet.child(self.render_create(form, cx));
         }
-        let (Some(timeline), Some(channel)) = (
-            &self.timeline,
-            self.channels
-                .iter()
-                .find(|row| Some(&row.channel.channel_id) == self.selected.as_ref()),
-        ) else {
+        if self.selected.is_none() {
             return sheet
                 .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move());
+        }
+        let draft = self.current_draft(window, cx);
+        let (Some(timeline), Some(channel)) = (&self.timeline, self.selected_row()) else {
+            return sheet;
         };
-        let header = div()
-            .h(px(44.))
-            .flex_none()
-            .pl(px(20.))
-            .pr(px(12.))
+        let header = self.render_header(channel, cx);
+        let banner = self.render_banner(channel, cx);
+        let composer = div()
+            .w_full()
+            .max_w(px(720.))
+            .px(px(24.))
             .flex()
-            .items_center()
-            .justify_between()
-            .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
-            .child(
+            .flex_col()
+            .gap(px(8.))
+            .children(banner)
+            .child(self.composer(&draft, self.send_failed, Self::send_main, window, cx));
+        if timeline.rows.is_empty() {
+            // An empty channel is just its composer, centered until the first post.
+            return sheet.child(header).child(
                 div()
+                    .flex_1()
+                    .min_h_0()
                     .flex()
                     .items_center()
-                    .gap(px(8.))
-                    .child(
-                        div()
-                            .text_size(px(14.))
-                            .font_weight(gpui_kit::FontWeight::SEMIBOLD)
-                            .text_color(theme::ink())
-                            .child(channel.channel.name.clone()),
-                    )
-                    .children(channel.stopped.then(|| {
-                        div()
-                            .text_size(px(12.))
-                            .text_color(theme::warn())
-                            .child("停止中")
-                    })),
-            )
-            .child(
-                div()
-                    .text_size(px(13.))
-                    .text_color(theme::ink2())
-                    .child(format!("未解決 {}", channel.unresolved)),
+                    .justify_center()
+                    .child(composer),
             );
-        let rt = self.rt.clone();
-        if window.is_window_active() {
-            timeline.track_read(&rt);
         }
         let rows = timeline.rows.clone();
         let list_view = list(
@@ -912,22 +1082,6 @@ impl Workspace {
             }),
         )
         .size_full();
-        let silent = self
-            .selected
-            .as_ref()
-            .is_some_and(|id| self.rt.is_silent(id));
-        let session = channel.channel.session_id.clone();
-        let banner = if channel.stopped {
-            Some(self.banner("セッションが停止しています", None, theme::warn_tint()))
-        } else if silent {
-            Some(self.banner(
-                "しばらくエージェントの応答がありません",
-                session.map(|s| format!("hc attach {s}")),
-                theme::tint(),
-            ))
-        } else {
-            None
-        };
         sheet
             .child(header)
             .child(
@@ -943,49 +1097,95 @@ impl Workspace {
                     .flex()
                     .justify_center()
                     .pb(px(16.))
-                    .child(
-                        div()
-                            .w_full()
-                            .max_w(px(720.))
-                            .px(px(24.))
-                            .flex()
-                            .flex_col()
-                            .gap(px(8.))
-                            .children(banner)
-                            .child(self.composer(&self.input, Self::send_main, cx)),
-                    ),
+                    .child(composer),
             )
     }
 
-    fn banner(
-        &self,
-        text: &'static str,
-        command: Option<String>,
-        background: gpui_kit::Rgba,
-    ) -> impl IntoElement + use<> {
-        div()
-            .h(px(40.))
-            .px(px(14.))
-            .flex()
-            .items_center()
-            .justify_between()
-            .rounded(px(10.))
-            .bg(background)
-            .text_size(px(13.))
-            .text_color(theme::ink())
-            .child(text)
-            .children(command.map(|command| {
+    fn render_banner(&self, row: &ChannelRow, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let base = |background: gpui_kit::Rgba, text: &'static str| {
+            div()
+                .min_h(px(40.))
+                .pl(px(14.))
+                .pr(px(8.))
+                .py(px(5.))
+                .flex()
+                .items_center()
+                .justify_between()
+                .gap(px(12.))
+                .rounded(px(10.))
+                .bg(background)
+                .text_size(px(13.))
+                .text_color(theme::ink())
+                .child(text)
+        };
+        let action = |id: &'static str, label: &'static str| {
+            div()
+                .id(id)
+                .h(px(30.))
+                .px(px(12.))
+                .flex()
+                .flex_none()
+                .items_center()
+                .rounded(px(7.))
+                .bg(theme::ink())
+                .cursor_pointer()
+                .text_size(px(13.))
+                .text_color(theme::white())
+                .child(label)
+        };
+        if row.stopped {
+            let button = if row.start_failed {
+                let channel = row.channel.clone();
+                action("retry-session", "再試行").on_click(cx.listener(move |this, _, _, cx| {
+                    this.start_session(
+                        channel.channel_id.clone(),
+                        LaunchConfig {
+                            cwd: channel.cwd.clone(),
+                            command: channel.command.clone(),
+                            prompt: channel.prompt.clone(),
+                        },
+                        cx,
+                    );
+                }))
+            } else {
+                action("new-session", "新しいセッションを開始").on_click(
+                    cx.listener(|this, _, window, cx| this.open_session_dialog(window, cx)),
+                )
+            };
+            return Some(
+                base(theme::warn_tint(), "セッションが停止しています")
+                    .child(button)
+                    .into_any_element(),
+            );
+        }
+        if self.silent {
+            let attach = row.channel.session_id.as_ref().map(|session| {
+                let command = format!("hc attach {session}");
                 let copied = command.clone();
                 div()
                     .id("attach-command")
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .gap(px(6.))
+                    .px(px(6.))
                     .cursor_pointer()
+                    .font_family(theme::MONO)
                     .text_size(px(12.))
                     .text_color(theme::ink2())
                     .child(command)
+                    .child(ui::icon("copy", 14., theme::ink3()))
                     .on_click(move |_, _, cx| {
-                        cx.write_to_clipboard(ClipboardItem::new_string(copied.clone()))
+                        cx.write_to_clipboard(ClipboardItem::new_string(copied.clone()));
                     })
-            }))
+            });
+            return Some(
+                base(theme::tint(), "しばらくエージェントの応答がありません")
+                    .children(attach)
+                    .into_any_element(),
+            );
+        }
+        None
     }
 
     fn render_pane(
@@ -1006,6 +1206,7 @@ impl Workspace {
             .flex()
             .items_center()
             .justify_between()
+            .on_mouse_down(MouseButton::Left, |_, window, _| window.start_window_move())
             .child(
                 div()
                     .text_size(px(13.))
@@ -1024,29 +1225,24 @@ impl Workspace {
                             .px(px(10.))
                             .flex()
                             .items_center()
+                            .gap(px(5.))
                             .rounded(px(7.))
                             .border_1()
-                            .border_color(rgba_border())
+                            .border_color(theme::field_border())
                             .cursor_pointer()
                             .text_size(px(13.))
                             .text_color(theme::ink())
-                            .child(if resolved { "再開" } else { "✓ 解決" })
+                            .children((!resolved).then(|| ui::icon("check", 14., theme::ink2())))
+                            .child(if resolved { "再開" } else { "解決" })
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                             .on_click(cx.listener(|this, _, _, cx| this.toggle_resolved(cx)))
                     }))
                     .child(
-                        div()
-                            .id("close-thread")
-                            .size(px(28.))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .cursor_pointer()
-                            .text_color(theme::ink3())
-                            .child("×")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.pane = None;
-                                cx.notify();
-                            })),
+                        ui::icon_button("close-thread", "x", theme::ink3())
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.close_thread(window, cx)),
+                            ),
                     ),
             );
         let parent = div()
@@ -1054,12 +1250,9 @@ impl Workspace {
             .px(px(20.))
             .pt(px(8.))
             .pb(px(6.))
-            .child(self.message(&pane.parent, usize::MAX / 2, false, cx));
+            .child(self.message(&pane.parent, None, usize::MAX / 2, false, cx));
         let mut replies = div().flex_1().min_h_0().relative();
         if let Some(timeline) = &pane.timeline {
-            if window.is_window_active() {
-                timeline.track_read(&self.rt);
-            }
             let rows = timeline.rows.clone();
             replies = replies
                 .child(
@@ -1081,6 +1274,13 @@ impl Workspace {
                         .mode(gpui_kit::base::ScrollbarMode::Always),
                 );
         }
+        let notice = if resolved {
+            Some(("rotate-ccw", "投稿すると再開します"))
+        } else if pane.just_reopened {
+            Some(("rotate-ccw", "エージェントへの依頼は投稿で伝わります"))
+        } else {
+            None
+        };
         Some(
             div()
                 .w(px(416.))
@@ -1105,26 +1305,36 @@ impl Workspace {
                         .flex()
                         .flex_col()
                         .gap(px(8.))
-                        .children(resolved.then(|| {
+                        .children(notice.map(|(mark, text)| {
                             div()
+                                .flex()
+                                .items_center()
+                                .gap(px(6.))
                                 .text_size(px(12.))
                                 .text_color(theme::ink2())
-                                .child("↺ 投稿すると再開します")
+                                .child(ui::icon(mark, 14., theme::ink2()))
+                                .child(text)
                         }))
-                        .child(self.composer(&pane.input, Self::send_thread, cx)),
+                        .child(self.composer(
+                            &pane.input,
+                            pane.send_failed,
+                            Self::send_thread,
+                            window,
+                            cx,
+                        )),
                 ),
         )
     }
 
     fn render_create(&self, form: &CreateForm, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let mono =
-            |state: &Entity<TextareaState>| div().w_full().child(Textarea::new(state).h(px(40.)));
+        let name = form.name.read(cx).value();
+        let ready = validate::channel_name(&name).is_ok()
+            && !form.fields.command.read(cx).value().trim().is_empty();
         div()
             .size_full()
             .flex()
             .items_center()
             .justify_center()
-            .on_mouse_down(MouseButton::Left, |_, _, _| {})
             .child(
                 div()
                     .w(px(480.))
@@ -1134,69 +1344,88 @@ impl Workspace {
                     .child(
                         div()
                             .pb(px(8.))
-                            .child(Input::new(&form.name).appearance(false).bordered(false)),
+                            .text_size(px(24.))
+                            .font_weight(FontWeight::MEDIUM)
+                            .child(
+                                Input::new(&form.name)
+                                    .appearance(false)
+                                    .bordered(false)
+                                    .p_0()
+                                    .h_auto()
+                                    .text_size(px(24.)),
+                            ),
                     )
-                    .child(
+                    .child(form.fields.render(cx))
+                    .children(form.error.clone().map(|error| {
                         div()
-                            .id("pick-directory")
-                            .h(px(36.))
-                            .px(px(12.))
-                            .flex()
-                            .items_center()
-                            .rounded(px(8.))
-                            .border_1()
-                            .border_color(theme::field_border())
-                            .cursor_pointer()
-                            .text_size(px(13.))
-                            .text_color(theme::ink())
-                            .child(tilde(&form.cwd))
-                            .on_click(cx.listener(|this, _, _, cx| this.pick_directory(cx))),
-                    )
-                    .child(mono(&form.command))
-                    .child(mono(&form.prompt))
-                    .child(
-                        div().pt(px(6.)).flex().justify_end().child(
-                            div()
-                                .id("create")
-                                .h(px(32.))
-                                .px(px(14.))
-                                .flex()
-                                .items_center()
-                                .rounded(px(7.))
-                                .bg(theme::accent())
-                                .cursor_pointer()
-                                .text_size(px(13.))
-                                .text_color(theme::white())
-                                .child("作成")
-                                .on_click(cx.listener(|this, _, _, cx| this.submit_create(cx))),
-                        ),
-                    ),
+                            .text_size(px(12.))
+                            .text_color(theme::warn())
+                            .child(error)
+                    }))
+                    .child(div().pt(px(6.)).flex().justify_end().child(
+                        ui::primary_button("create", "作成", ready).on_click(cx.listener(
+                            move |this, _, window, cx| {
+                                if ready {
+                                    this.submit_create(window, cx);
+                                }
+                            },
+                        )),
+                    )),
             )
     }
-}
 
-fn rgba_border() -> gpui_kit::Rgba {
-    gpui_kit::rgba(0x00000018)
-}
-
-fn tilde(path: &str) -> String {
-    match std::env::var("HOME") {
-        Ok(home) if path.starts_with(&home) => format!("~{}", &path[home.len()..]),
-        _ => path.to_owned(),
-    }
-}
-
-trait WhenSelected {
-    fn when_selected(self, selected: bool) -> Self;
-}
-
-impl<E: gpui_kit::Styled> WhenSelected for E {
-    fn when_selected(self, selected: bool) -> Self {
-        if selected {
-            self.bg(theme::selected())
-        } else {
-            self
-        }
+    /// Development aid: writes one window state to a PNG, then quits.
+    #[cfg(feature = "screenshot")]
+    fn schedule_screenshot(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(path) = std::env::var_os("BRAYDR_SCREENSHOT") else {
+            return;
+        };
+        let state = std::env::var("BRAYDR_SCREENSHOT_STATE").unwrap_or_default();
+        cx.spawn_in(window, async move |this, cx| {
+            cx.background_executor()
+                .timer(Duration::from_millis(500))
+                .await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                let threaded = this.timeline.as_ref().and_then(|timeline| {
+                    timeline.rows.iter().find_map(|row| match row {
+                        Row::Message(m, Some(_)) => Some(m.clone()),
+                        _ => None,
+                    })
+                });
+                match state.as_str() {
+                    "thread" => {
+                        if let Some(parent) = threaded {
+                            this.open_thread(parent, window, cx);
+                        }
+                    }
+                    "unresolved" => this.open_unresolved(window, cx),
+                    "menu" => this.open_menu(window, cx),
+                    "rename" => this.open_rename(window, cx),
+                    "session" => this.open_session_dialog(window, cx),
+                    "create" => this.start_create(window, cx),
+                    "collapsed" => this.sidebar_open = false,
+                    "search" => {
+                        this.open_search(window, cx);
+                        if let Some(Overlay::Search(panel)) = &this.overlay {
+                            panel.set_query("バリデーション", window, cx);
+                        }
+                        this.run_search(cx);
+                    }
+                    _ => {}
+                }
+            });
+            cx.background_executor().timer(Duration::from_secs(2)).await;
+            let _ = cx.update(|window, cx| {
+                match window.render_to_image() {
+                    Ok(image) => {
+                        let _ = image.save(&path);
+                    }
+                    Err(error) => tracing::error!(%error, "cannot capture"),
+                }
+                cx.quit();
+            });
+        })
+        .detach();
     }
 }
 
@@ -1204,20 +1433,53 @@ impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let main = self.render_main(window, cx);
         let pane = self.render_pane(window, cx);
+        let overlay = self.render_overlay(cx);
         // Read positions depend on layout, so check them after the frame.
-        cx.on_next_frame(window, |this, window, _| {
-            if window.is_window_active()
-                && let Some(timeline) = &this.timeline
-            {
-                timeline.track_read(&this.rt);
+        cx.on_next_frame(window, |this, window, cx| {
+            // While dragging (the scrollbar, usually) rows fly past unread. The release counts.
+            if window.is_window_active() && !this.pointer_down {
+                for timeline in [
+                    this.timeline.as_ref(),
+                    this.pane.as_ref().and_then(|p| p.timeline.as_ref()),
+                ]
+                .into_iter()
+                .flatten()
+                {
+                    timeline.track_read(&this.rt);
+                }
             }
+            this.dismiss_reached(window, cx);
+            this.load_more_if_near_end(cx);
         });
         div()
+            .key_context("Workspace")
+            .track_focus(&self.focus)
             .size_full()
+            .relative()
             .flex()
             .bg(theme::window())
-            .font_family(".SystemUIFont")
-            .child(self.render_sidebar(cx))
+            .font_family(theme::SANS)
+            .capture_any_mouse_down(cx.listener(|this, _, _, _| this.pointer_down = true))
+            .capture_any_mouse_up(cx.listener(|this, _, _, cx| {
+                this.pointer_down = false;
+                cx.notify();
+            }))
+            .on_action(cx.listener(|this, _: &Dismiss, window, cx| {
+                this.dismiss(window, cx);
+            }))
+            .capture_action(cx.listener(|this, _: &input::Escape, window, cx| {
+                if this.dismiss(window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
+            .on_action(cx.listener(|this, _: &FindInChannel, window, cx| {
+                this.open_search(window, cx);
+            }))
+            .capture_action(cx.listener(|this, _: &input::Search, window, cx| {
+                this.open_search(window, cx);
+                cx.stop_propagation();
+            }))
+            .children(self.sidebar_open.then(|| self.render_sidebar(cx)))
             .child(
                 div()
                     .flex_1()
@@ -1228,8 +1490,10 @@ impl Render for Workspace {
                     .pt(px(8.))
                     .pr(px(8.))
                     .pb(px(8.))
+                    .pl(px(if self.sidebar_open { 0. } else { 8. }))
                     .child(main)
                     .children(pane),
             )
+            .children(overlay)
     }
 }

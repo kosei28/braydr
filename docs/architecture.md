@@ -91,11 +91,15 @@ UI なしで規則を試せるよう、仕様の判断は `braydr-core` に集�
 
 | 実行場所 | 担当 | 備考 |
 | --- | --- | --- |
-| GPUI メインスレッド | ビュー、Entity、AppService | ブロックしない |
-| DB スレッド（1 本） | すべての読み書き | チャネルで受け、結果を非同期で返す。書き込みが直列になる |
-| GPUI background executor | herdr の接続 2 本、IPC サーバー | `smol::Async<UnixStream>` を使う |
+| GPUI メインスレッド | ビュー、Entity、DB の読み書き | herdr-core を直接呼ばない |
+| GPUI background executor | セッションの作成と停止 | 終わったら Entity に結果を返す |
+| OS スレッド | IPC サーバー、チャンネルごとの配送キュー、状態の確認と再通知（5 秒ごと）、イベントの購読 | 同期 I/O を使う |
 
-`gpui` の `Task` は drop で取り消される。常駐タスクは `AppService` が保持する。
+DB は `Mutex<Store>` 1 つで共有し、書き込みはこのロックで直列になる。SQLite の読み書きは 10 万件でも
+数十ミリ秒以内なので、当面メインスレッドから呼ぶ。引っかかるようならここを DB スレッドに分ける。
+
+セッションの状態は `Runtime` がキャッシュし、描画中は `cached_state` だけを読む。UI は 300ms ごとに
+`Runtime::revision` を見て、変わっていれば読み直す。
 
 ---
 
@@ -214,9 +218,11 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 
 ### UI
 
-- 画面状態は Entity に置く。`ChannelList`、`Timeline`（メインとスレッドで共用）、`ThreadSheet`、
-  `UnresolvedPanel`、`SearchPanel`。
-- DB の変更はドメインイベントで通知し、Entity が必要な範囲を読み直す。
+- 画面状態は `Workspace` の Entity に置く。`Timeline` はメインとスレッドで共用し、パネルとダイアログは
+  `Overlay` の 1 つの枠で持つので、同時に 2 つ開かない。
+- データの変更は `Runtime::revision` で知らせ、`Workspace` が読み直す。
+- タイムラインは今のところ全件を読み込む。行の高さの計測は `ListState` が必要な分だけ行う。
+  件数が増えて読み直しが重くなったら、ページングに変える。
 - ウィンドウは `TitleBar::window_options()` を土台に、信号機の位置を y = 30 に合わせ、
   `app_owns_titlebar_drag` を有効にして、シート上部をドラッグ領域にする。
 - トークンは `design-system.md` の値を `ui/theme.rs` に写し、ビューに生の色を書かない。
@@ -275,15 +281,14 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 
 ### CI
 
-macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo nextest run`、`cargo deny check`。
-契約テストは `hc` をインストールしてから実行する。
+macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`。
+実物の `hc` を使う確認は例として置き（`braydr-herdr` の `events`、`braydr-runtime` の `e2e`）、当面は手元で実行する。
 
 ---
 
 ## 7. ビルドと配布
 
-- `just` にまとめる。`just run` は素の実行、`just bundle` は `.app` の生成と起動。
-- `.app` はスクリプトで組む。`Info.plist`、エンタイトルメント、`braydr-mcp`、フォントを含める。
+- `.app` は `scripts/bundle.sh` で組む。`Info.plist` と `braydr-mcp` を含める。フォントは実行ファイルに埋め込む。
   `cargo-bundle` は使わない（サイドカーの同梱が単純なスクリプトで済むため）。
 - `braydr-mcp` は `Contents/MacOS/` に置く。
 - 配布するときは Developer ID で署名し、公証する。当面は個人利用なのでアドホック署名でよい。
@@ -309,6 +314,11 @@ macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`
 エージェントが止まる原因は確認画面、MCP やスキルの未設定など複数あり、アプリからは区別できない。
 そこで、ツールの呼び出しがないまま 60 秒経ったことだけを検知し、原因は断定しない（`product-spec.md` 4.6）。
 IPC サーバーはチャンネルごとに最後のツール呼び出しの時刻を保持する。
+
+### イベントの検証（2026-11-01、hc 0.1.16）
+
+`braydr-herdr` の例 `events` で確かめた。`events.subscribe` はラベルで絞った terminal のスナップショットを返し、
+`terminal.kill` の後に `finished` が届く。
 
 ### 一周の検証（2026-11-01、hc 0.1.16、Claude Code 2.1.288、Haiku）
 
