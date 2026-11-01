@@ -1,4 +1,5 @@
 mod overlay;
+mod pane_widths;
 mod settings;
 mod theme;
 mod timeline;

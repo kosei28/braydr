@@ -9,14 +9,16 @@ use braydr_core::{Author, LaunchConfig, Message, StateAction, Thread, validate};
 use braydr_runtime::SessionState;
 use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaState};
 use gpui_kit::component::text::TextView;
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, FocusHandle, Focusable as _,
-    FontWeight, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Render,
-    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification,
-    Window, div, list, px,
+    AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle, Div, Entity, FocusHandle,
+    Focusable as _, FontWeight, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
+    MouseMoveEvent, ParentElement as _, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, div, list, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
+use crate::pane_widths::{Edge, Frame, PaneWidths};
 use crate::timeline::{OwnedScope, Row, Rt, ThreadLink, Timeline};
 use crate::{settings, theme, ui, window_state};
 
@@ -57,6 +59,16 @@ pub struct CreateForm {
     error: Option<String>,
 }
 
+/// A drag on a pane's edge, measured from where it started.
+#[derive(Clone, Copy)]
+struct Resize {
+    edge: Edge,
+    start_x: f32,
+    start_width: f32,
+}
+
+const EDGE_WIDTH: f32 = 8.;
+
 pub struct Workspace {
     pub rt: Rt,
     revision: u64,
@@ -69,6 +81,10 @@ pub struct Workspace {
     pub create: Option<CreateForm>,
     pub overlay: Option<Overlay>,
     pub sidebar_open: bool,
+    pub widths: PaneWidths,
+    /// `widths` fitted to the window, as last drawn.
+    pub shown: PaneWidths,
+    resize: Option<Resize>,
     pointer_down: bool,
     bounds_changed: bool,
     silent: bool,
@@ -83,6 +99,7 @@ pub struct Workspace {
 impl Workspace {
     pub fn new(rt: Rt, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let announced_through = rt.store().newest_message_id().ok().flatten();
+        let widths = PaneWidths::load(&rt);
         let mut this = Self {
             rt,
             revision: 0,
@@ -95,6 +112,9 @@ impl Workspace {
             create: None,
             overlay: None,
             sidebar_open: true,
+            widths,
+            shown: widths,
+            resize: None,
             pointer_down: false,
             bounds_changed: false,
             silent: false,
@@ -686,7 +706,7 @@ impl Workspace {
             rows = rows.child(line);
         }
         div()
-            .w(px(240.))
+            .w(px(self.shown.sidebar))
             .flex_none()
             .h_full()
             .flex()
@@ -1365,7 +1385,7 @@ impl Workspace {
         };
         Some(
             div()
-                .w(px(416.))
+                .w(px(self.shown.thread))
                 .flex_none()
                 .h_full()
                 .flex()
@@ -1559,8 +1579,111 @@ impl Workspace {
     }
 }
 
+impl Workspace {
+    fn frame(&self, window: &Window) -> Frame {
+        Frame {
+            window: f32::from(window.viewport_size().width),
+            sidebar_open: self.sidebar_open,
+            thread_open: self.pane.is_some(),
+        }
+    }
+
+    pub fn begin_resize(&mut self, edge: Edge, x: f32) {
+        let start_width = match edge {
+            Edge::Sidebar => self.shown.sidebar,
+            Edge::Thread => self.shown.thread,
+        };
+        self.resize = Some(Resize {
+            edge,
+            start_x: x,
+            start_width,
+        });
+    }
+
+    pub fn drag_resize(&mut self, x: f32, window: &Window, cx: &mut Context<Self>) {
+        let Some(resize) = self.resize else { return };
+        let moved = x - resize.start_x;
+        let width = match resize.edge {
+            Edge::Sidebar => resize.start_width + moved,
+            Edge::Thread => resize.start_width - moved,
+        };
+        self.widths = self
+            .widths
+            .with_dragged(resize.edge, width, self.frame(window));
+        cx.notify();
+    }
+
+    pub fn end_resize(&mut self, cx: &mut Context<Self>) {
+        if self.resize.take().is_some() {
+            self.widths.save(&self.rt);
+            cx.notify();
+        }
+    }
+
+    pub fn reset_width(&mut self, edge: Edge, cx: &mut Context<Self>) {
+        self.widths = self.widths.with_default(edge);
+        self.widths.save(&self.rt);
+        cx.notify();
+    }
+
+    /// The grip on a pane's inner edge. It has no look of its own until the pointer finds it.
+    fn render_edge(&self, edge: Edge, cx: &mut Context<Self>) -> impl IntoElement {
+        let grip = div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .w(px(EDGE_WIDTH))
+            .cursor(CursorStyle::ResizeLeftRight)
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, event: &MouseDownEvent, _, cx| {
+                    if event.click_count == 2 {
+                        this.reset_width(edge, cx);
+                    } else {
+                        this.begin_resize(edge, f32::from(event.position.x));
+                        cx.notify();
+                    }
+                    cx.stop_propagation();
+                }),
+            );
+        let grip = match edge {
+            Edge::Sidebar => grip
+                .id("edge-sidebar")
+                .left(px(self.shown.sidebar - EDGE_WIDTH)),
+            // The gap between the sheets, which sit 8 from the window's edge.
+            Edge::Thread => grip.id("edge-thread").right(px(self.shown.thread + 8.)),
+        };
+        let dragging = self.resize.is_some_and(|resize| resize.edge == edge);
+        grip.when(dragging, |grip| grip.bg(theme::hairline()))
+            .hover(|grip| grip.bg(theme::hairline()))
+    }
+
+    /// Takes every pointer event during a drag, so nothing under it reacts and the cursor holds.
+    fn render_resize_cover(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        div()
+            .id("resize-cover")
+            .absolute()
+            .inset_0()
+            .occlude()
+            .cursor(CursorStyle::ResizeLeftRight)
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, window, cx| {
+                // The button can come up outside the window, where no release reaches us.
+                if event.pressed_button == Some(MouseButton::Left) {
+                    this.drag_resize(f32::from(event.position.x), window, cx);
+                } else {
+                    this.end_resize(cx);
+                }
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, cx| this.end_resize(cx)),
+            )
+    }
+}
+
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.shown = self.widths.fitted(self.frame(window));
         let main = self.render_main(window, cx);
         let pane = self.render_pane(window, cx);
         let overlay = self.render_overlay(cx);
@@ -1624,6 +1747,16 @@ impl Render for Workspace {
                     .child(main)
                     .children(pane),
             )
+            .children(
+                self.sidebar_open
+                    .then(|| self.render_edge(Edge::Sidebar, cx)),
+            )
+            .children(
+                self.pane
+                    .is_some()
+                    .then(|| self.render_edge(Edge::Thread, cx)),
+            )
+            .children(self.resize.is_some().then(|| self.render_resize_cover(cx)))
             .children(overlay)
     }
 }

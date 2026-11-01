@@ -7,9 +7,10 @@ use braydr_core::{LaunchConfig, Scope};
 use braydr_herdr::Client;
 use braydr_runtime::Runtime;
 use braydr_store::Store;
-use gpui_kit::{Entity, TestAppContext, VisualTestContext};
+use gpui_kit::{Entity, Modifiers, MouseButton, TestAppContext, VisualTestContext, point, px};
 
 use crate::overlay::Overlay;
+use crate::pane_widths::{Edge, PaneWidths};
 use crate::timeline::{Row, Rt};
 use crate::workspace::Workspace;
 
@@ -378,4 +379,36 @@ fn copying_shows_a_check_for_a_moment(cx: &mut TestAppContext) {
         .advance_clock(std::time::Duration::from_millis(600));
     cx.run_until_parked();
     view.read_with(cx, |this, _| assert!(this.copied.is_none()));
+}
+
+#[gpui_kit::test]
+fn dragging_a_pane_edge_resizes_and_remembers(cx: &mut TestAppContext) {
+    let rt = runtime();
+    rt.store().create_channel("c", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+    let start = view.read_with(cx, |this, _| this.shown.sidebar);
+    let at = |x: f32| point(px(x), px(100.));
+    let none = Modifiers::none();
+    // The grip is the sidebar's last 8 points.
+    cx.simulate_mouse_move(at(start - 4.), None, none);
+    cx.simulate_mouse_down(at(start - 4.), MouseButton::Left, none);
+    cx.simulate_mouse_move(at(start + 56.), MouseButton::Left, none);
+    cx.simulate_mouse_up(at(start + 56.), MouseButton::Left, none);
+    cx.run_until_parked();
+    assert_eq!(
+        view.read_with(cx, |this, _| this.shown.sidebar),
+        start + 60.
+    );
+    assert_eq!(PaneWidths::load(&rt).sidebar, start + 60.);
+    // Further moves after the release do nothing.
+    cx.simulate_mouse_move(at(start + 90.), None, none);
+    cx.run_until_parked();
+    assert_eq!(
+        view.read_with(cx, |this, _| this.shown.sidebar),
+        start + 60.
+    );
+    // Double-clicking the edge goes back to the default.
+    view.update(cx, |this, cx| this.reset_width(Edge::Sidebar, cx));
+    cx.run_until_parked();
+    assert_eq!(PaneWidths::load(&rt).sidebar, start);
 }

@@ -463,7 +463,11 @@ impl Workspace {
     }
 
     fn sheet_left(&self) -> f32 {
-        if self.sidebar_open { 240. } else { 8. }
+        if self.sidebar_open {
+            self.shown.sidebar
+        } else {
+            8.
+        }
     }
 
     fn render_menu(&self, cx: &mut Context<Self>) -> AnyElement {
