@@ -24,6 +24,10 @@ gpui_kit::actions!(braydr, [Send, Dismiss, OpenSettings, FindInChannel]);
 
 const BODY_LINE_HEIGHT: f32 = 23.;
 const NOTIFICATION_CHARS: usize = 120;
+/// A message's room inside its hover and highlight area. Lists take it off their own padding, so
+/// the text stays on the same axis as the rest of the sheet.
+const MESSAGE_INSET_X: f32 = 10.;
+const MESSAGE_INSET_Y: f32 = 7.;
 const COPIED_FOR: Duration = Duration::from_millis(1500);
 
 /// The right sheet: a thread, or a draft reply before the thread exists.
@@ -739,13 +743,15 @@ impl Workspace {
     ) -> AnyElement {
         match row {
             Row::Parent(parent) => div()
-                .pt(px(8.))
+                .pt(px(1.))
                 .child(self.message(parent, None, usize::MAX / 2, false, cx))
                 .into_any_element(),
             // More below than above: the footer before it already leaves room, and the label's
             // line box and the next line's leading are smaller than that.
             Row::Unread => div()
-                .pb(px(16.))
+                .px(px(MESSAGE_INSET_X))
+                .pt(px(MESSAGE_INSET_Y))
+                .pb(px(9.))
                 .flex()
                 .items_center()
                 .gap(px(10.))
@@ -768,6 +774,7 @@ impl Workspace {
                     StateAction::Reopened => ("rotate-ccw", "が再開"),
                 };
                 div()
+                    .px(px(MESSAGE_INSET_X))
                     .py(px(8.))
                     .flex()
                     .items_center()
@@ -898,19 +905,12 @@ impl Workspace {
         }
         let text = message.text.clone();
         let copy_key = format!("message-{is_main}-{}", message.message_id);
-        let copied = self.copied.as_deref() == Some(copy_key.as_str());
         let copy_icon = self.copy_icon(&copy_key, theme::ink2());
-        let copy_button = div().id(("copy", ix));
-        // The check stays visible after the pointer leaves, so the result is not missed.
-        let copy_button = if copied {
-            copy_button
-        } else {
-            copy_button
+        footer = footer.child(
+            div()
+                .id(("copy", ix))
                 .invisible()
                 .group_hover(group.clone(), |style| style.visible())
-        };
-        footer = footer.child(
-            copy_button
                 .size(px(26.))
                 .flex()
                 .items_center()
@@ -927,7 +927,8 @@ impl Workspace {
         let mut row = div()
             .group(group)
             .w_full()
-            .pb(px(14.))
+            .px(px(MESSAGE_INSET_X))
+            .py(px(MESSAGE_INSET_Y))
             .flex()
             .flex_col()
             .items_start()
@@ -935,7 +936,7 @@ impl Workspace {
             .child(body)
             .child(footer);
         if highlighted {
-            row = row.bg(theme::match_mark()).rounded(px(8.));
+            row = row.bg(theme::match_mark()).rounded(px(10.));
         }
         row
     }
@@ -1144,7 +1145,7 @@ impl Workspace {
                         div()
                             .w_full()
                             .max_w(px(720.))
-                            .px(px(24.))
+                            .px(px(24. - MESSAGE_INSET_X))
                             .child(this.message_row(&row, ix, true, cx)),
                     )
                     .into_any_element()
@@ -1324,8 +1325,8 @@ impl Workspace {
                         .size_full()
                         .overflow_y_scroll()
                         .track_scroll(&pane.draft_scroll)
-                        .px(px(20.))
-                        .pt(px(8.))
+                        .px(px(20. - MESSAGE_INSET_X))
+                        .pt(px(1.))
                         .child(self.message(&pane.parent, None, usize::MAX / 2, false, cx)),
                 )
                 .child(
@@ -1343,7 +1344,7 @@ impl Workspace {
                             let row = rows[ix].clone();
                             div()
                                 .w_full()
-                                .px(px(20.))
+                                .px(px(20. - MESSAGE_INSET_X))
                                 .child(this.message_row(&row, ix + 1_000_000, false, cx))
                                 .into_any_element()
                         }),
@@ -1500,6 +1501,17 @@ impl Workspace {
                         if let Some(parent) = unthreaded {
                             this.open_thread(parent, window, cx);
                         }
+                    }
+                    "flash" => {
+                        // Without the timer, which would end before the capture.
+                        this.highlight = this.timeline.as_ref().and_then(|timeline| {
+                            timeline.rows.iter().find_map(|row| match row {
+                                Row::Message(m, _) if m.child_thread_id.is_some() => {
+                                    Some(m.message_id.clone())
+                                }
+                                _ => None,
+                            })
+                        });
                     }
                     "resize" => window.resize(gpui_kit::size(px(1100.), px(750.))),
                     "unresolved" => this.open_unresolved(window, cx),
