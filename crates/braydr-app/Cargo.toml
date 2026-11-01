@@ -1,0 +1,29 @@
+[package]
+name = "braydr-app"
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "braydr"
+path = "src/main.rs"
+
+[dependencies]
+braydr-core.workspace = true
+braydr-herdr = { path = "../braydr-herdr" }
+braydr-ipc = { path = "../braydr-ipc" }
+braydr-runtime = { path = "../braydr-runtime" }
+braydr-store = { path = "../braydr-store" }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+gpui-kit = "=0.8.1"
+image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+tracing = "0.1"
+
+[features]
+screenshot = ["dep:image", "gpui-kit/test-support"]
+
+[dev-dependencies]
+gpui-kit = { version = "=0.8.1", features = ["test-support"] }
+
+[lints]
+workspace = true

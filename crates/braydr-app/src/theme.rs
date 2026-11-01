@@ -1,0 +1,65 @@
+//! Tokens from `docs/design-system.md`.
+
+use gpui_kit::{Hsla, Rgba, rgb, rgba};
+
+pub fn c(hex: u32) -> Rgba {
+    rgb(hex)
+}
+
+pub fn window() -> Rgba {
+    c(0xEFEFEC)
+}
+pub fn sheet() -> Rgba {
+    c(0xFFFFFF)
+}
+pub fn tint() -> Rgba {
+    c(0xF4F4F1)
+}
+pub fn selected() -> Rgba {
+    c(0xE2E2DE)
+}
+pub fn hairline() -> Rgba {
+    rgba(0x0000000F)
+}
+pub fn field_border() -> Rgba {
+    rgba(0x00000022)
+}
+pub fn ink() -> Rgba {
+    c(0x18181A)
+}
+pub fn ink2() -> Rgba {
+    c(0x5C5C60)
+}
+pub fn ink3() -> Rgba {
+    c(0x8E8E92)
+}
+pub fn ink4() -> Rgba {
+    c(0xBDBDBF)
+}
+pub fn accent() -> Rgba {
+    c(0x2F4BFF)
+}
+pub fn accent_soft() -> Rgba {
+    rgba(0x2F4BFFB3)
+}
+pub fn accent_tint() -> Rgba {
+    rgba(0x2F4BFF12)
+}
+pub fn unread() -> Rgba {
+    c(0xF08C00)
+}
+pub fn unread_line() -> Rgba {
+    rgba(0xF08C0050)
+}
+pub fn unread_text() -> Rgba {
+    c(0xB86200)
+}
+pub fn warn() -> Rgba {
+    c(0xD6295E)
+}
+pub fn warn_tint() -> Rgba {
+    rgba(0xD6295E12)
+}
+pub fn white() -> Hsla {
+    gpui_kit::white()
+}

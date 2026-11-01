@@ -1,6 +1,7 @@
 //! Sessions, delivery, and nudges, without any UI (`docs/product-spec.md` 7, 8, and 10).
 
 use std::collections::{BTreeMap, HashMap};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -59,6 +60,7 @@ pub struct Runtime<C: Core + 'static> {
     channels: Mutex<HashMap<String, ChannelRuntime>>,
     clock: Box<dyn Fn() -> i64 + Send + Sync>,
     retry_delay: Duration,
+    revision: AtomicU64,
 }
 
 fn labels_for(channel_id: Option<&str>) -> BTreeMap<String, String> {
@@ -77,7 +79,17 @@ impl<C: Core + 'static> Runtime<C> {
             channels: Mutex::new(HashMap::new()),
             clock,
             retry_delay: Duration::from_millis(500),
+            revision: AtomicU64::new(1),
         })
+    }
+
+    /// Changes whenever data may have changed. The UI polls it.
+    pub fn revision(&self) -> u64 {
+        self.revision.load(Ordering::Relaxed)
+    }
+
+    fn bump(&self) {
+        self.revision.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn store(&self) -> MutexGuard<'_, Store> {
@@ -208,6 +220,7 @@ impl<C: Core + 'static> Runtime<C> {
             (message, store.channel(channel_id)?.name)
         };
         self.deliver(channel_id, notification::new_post_main(&name, &message));
+        self.bump();
         Ok(message)
     }
 
@@ -239,6 +252,7 @@ impl<C: Core + 'static> Runtime<C> {
             )
         };
         self.deliver(channel_id, text);
+        self.bump();
         Ok(reply)
     }
 
@@ -359,7 +373,9 @@ impl<C: Core + 'static> Runtime<C> {
         if let Some(channel_id) = request.channel.as_deref() {
             self.with_channel(channel_id, |state| state.watch.tool_called());
         }
-        server::handle(&mut self.store(), request)
+        let response = server::handle(&mut self.store(), request);
+        self.bump();
+        response
     }
 
     pub fn tool_handler(self: &Arc<Self>) -> server::Handler {
