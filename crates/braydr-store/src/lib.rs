@@ -222,8 +222,9 @@ impl Store {
         let id = new_id();
         self.write(|tx, now| {
             tx.execute(
-                "INSERT INTO channels (channel_id, name, cwd, command, prompt, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                "INSERT INTO channels (channel_id, name, cwd, command, prompt, created_at, position)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6,
+                    (SELECT coalesce(min(position), 1) - 1 FROM channels))",
                 params![id, name, launch.cwd, launch.command, launch.prompt, now],
             )
             .db()?;
@@ -245,14 +246,14 @@ impl Store {
             .ok_or(Error::ChannelNotFound)
     }
 
-    /// Newest post first, as the sidebar shows them.
+    /// In the order the user arranged them; new channels come first.
     pub fn channels(&self) -> Result<Vec<Channel>> {
         let mut statement = self
             .conn
             .prepare(
                 "SELECT c.channel_id, c.name, c.session_id, c.cwd, c.command, c.prompt, c.created_at
                  FROM channels c
-                 ORDER BY coalesce((SELECT max(m.message_id) FROM messages m WHERE m.channel_id = c.channel_id AND m.thread_id IS NULL), c.channel_id) DESC",
+                 ORDER BY c.position, c.channel_id DESC",
             )
             .db()?;
         statement
@@ -275,6 +276,35 @@ impl Store {
             return Err(Error::ChannelNotFound);
         }
         Ok(())
+    }
+
+    /// Moves the channel to `index` in the list, counted after taking it out.
+    pub fn move_channel(&mut self, channel_id: &str, index: usize) -> Result<()> {
+        self.write(|tx, _| {
+            let mut ids = {
+                let mut statement = tx
+                    .prepare("SELECT channel_id FROM channels ORDER BY position, channel_id DESC")
+                    .db()?;
+                statement
+                    .query_map([], |row| row.get::<_, String>(0))
+                    .db()?
+                    .collect::<rusqlite::Result<Vec<_>>>()
+                    .db()?
+            };
+            let Some(from) = ids.iter().position(|id| id == channel_id) else {
+                return Err(Error::ChannelNotFound);
+            };
+            let moved = ids.remove(from);
+            ids.insert(index.min(ids.len()), moved);
+            for (position, id) in ids.iter().enumerate() {
+                tx.execute(
+                    "UPDATE channels SET position = ?2 WHERE channel_id = ?1",
+                    params![id, position as i64],
+                )
+                .db()?;
+            }
+            Ok(())
+        })
     }
 
     /// Removes the channel and everything in it. Returns the ids of its threads.

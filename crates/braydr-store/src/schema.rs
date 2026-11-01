@@ -65,6 +65,23 @@ const MIGRATIONS: &[&str] = &[
         );
         "#,
     "ALTER TABLE channels ADD COLUMN session_responded INTEGER NOT NULL DEFAULT 0;",
+    // Channels used to sort by their newest post, so that is where they start.
+    r#"
+        ALTER TABLE channels ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+        UPDATE channels SET position = (
+            SELECT ranked.rank FROM (
+                SELECT c.channel_id, row_number() OVER (
+                    ORDER BY coalesce(
+                        (SELECT max(m.message_id) FROM messages m
+                         WHERE m.channel_id = c.channel_id AND m.thread_id IS NULL),
+                        c.channel_id
+                    ) DESC
+                ) AS rank
+                FROM channels c
+            ) ranked
+            WHERE ranked.channel_id = channels.channel_id
+        );
+        "#,
 ];
 
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -76,4 +93,40 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
         tx.commit()?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn existing_channels_keep_their_newest_post_order() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        for sql in &MIGRATIONS[..MIGRATIONS.len() - 1] {
+            conn.execute_batch(sql).unwrap();
+        }
+        conn.pragma_update(None, "user_version", MIGRATIONS.len() as i64 - 1)
+            .unwrap();
+        conn.execute_batch(
+            "INSERT INTO channels (channel_id, name, cwd, command, prompt, created_at) VALUES
+                ('1', 'posted-last', '', '', '', 0),
+                ('2', 'no-posts', '', '', '', 0),
+                ('3', 'posted-first', '', '', '', 0);
+             INSERT INTO messages (message_id, channel_id, author, text, created_at) VALUES
+                ('0', '3', 'user', '', 0),
+                ('9', '1', 'user', '', 0);",
+        )
+        .unwrap();
+
+        migrate(&mut conn).unwrap();
+
+        let names = conn
+            .prepare("SELECT name FROM channels ORDER BY position")
+            .unwrap()
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        assert_eq!(names, ["posted-last", "no-posts", "posted-first"]);
+    }
 }

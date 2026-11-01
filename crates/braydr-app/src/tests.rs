@@ -465,6 +465,49 @@ fn copying_shows_a_check_for_a_moment(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn dragging_a_channel_row_reorders_and_clicking_still_selects(cx: &mut TestAppContext) {
+    let rt = runtime();
+    for name in ["c", "b", "a"] {
+        rt.store().create_channel(name, &launch()).unwrap();
+    }
+    let names = |rt: &Rt| -> Vec<String> {
+        let channels = rt.store().channels().unwrap();
+        channels.into_iter().map(|channel| channel.name).collect()
+    };
+    let (view, cx) = open(cx, &rt);
+    let none = Modifiers::none();
+    let first = cx.debug_bounds("channel-row-0").unwrap().center();
+    let last = cx.debug_bounds("channel-row-2").unwrap().center();
+    let drag = |cx: &mut VisualTestContext, from, to| {
+        cx.simulate_mouse_move(from, None, none);
+        cx.simulate_mouse_down(from, MouseButton::Left, none);
+        cx.simulate_mouse_move(to, MouseButton::Left, none);
+        // Once to start the drag and draw the drop targets, once to land on them.
+        cx.run_until_parked();
+        cx.simulate_mouse_move(to, MouseButton::Left, none);
+        cx.run_until_parked();
+        cx.simulate_mouse_up(to, MouseButton::Left, none);
+        cx.run_until_parked();
+    };
+
+    drag(cx, first, last);
+    assert_eq!(names(&rt), ["b", "c", "a"], "downward lands below the row");
+    drag(cx, last, first);
+    assert_eq!(names(&rt), ["a", "b", "c"], "upward lands above the row");
+
+    let target = rt.store().channels().unwrap()[1].channel_id.clone();
+    let row = cx.debug_bounds("channel-row-1").unwrap().center();
+    cx.simulate_mouse_move(row, None, none);
+    cx.simulate_mouse_down(row, MouseButton::Left, none);
+    cx.simulate_mouse_up(row, MouseButton::Left, none);
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.selected.as_deref(), Some(target.as_str()))
+    });
+    assert_eq!(names(&rt), ["a", "b", "c"]);
+}
+
+#[gpui_kit::test]
 fn dragging_a_pane_edge_resizes_and_remembers(cx: &mut TestAppContext) {
     let rt = runtime();
     rt.store().create_channel("c", &launch()).unwrap();

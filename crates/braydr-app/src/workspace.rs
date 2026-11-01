@@ -46,6 +46,30 @@ pub struct ThreadPane {
     send_failed: bool,
 }
 
+/// A channel row being dragged to a new place in the list.
+struct DraggedChannel {
+    id: String,
+    index: usize,
+    name: String,
+}
+
+struct DraggedChannelPreview {
+    name: String,
+}
+
+impl Render for DraggedChannelPreview {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        ui::floating(7.)
+            .h(px(30.))
+            .px(px(10.))
+            .flex()
+            .items_center()
+            .text_size(px(13.))
+            .text_color(theme::ink())
+            .child(self.name.clone())
+    }
+}
+
 pub struct ChannelRow {
     pub channel: braydr_core::Channel,
     pub state: SessionState,
@@ -278,6 +302,15 @@ impl Workspace {
         let draft = self.current_draft(window, cx);
         draft.update(cx, |state, cx| state.focus(window, cx));
         self.dismiss_opened(&opened, window, cx);
+        cx.notify();
+    }
+
+    fn move_channel(&mut self, channel_id: &str, index: usize, cx: &mut Context<Self>) {
+        if let Err(error) = self.rt.store().move_channel(channel_id, index) {
+            tracing::warn!(%error, "cannot move the channel");
+        }
+        self.reload_channels();
+        self.rt.bump();
         cx.notify();
     }
 
@@ -690,7 +723,8 @@ impl Workspace {
 
     fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
         let mut rows = div().flex().flex_col();
-        for row in &self.channels {
+        let dragging = cx.has_active_drag();
+        for (index, row) in self.channels.iter().enumerate() {
             let id = row.channel.channel_id.clone();
             let selected = self.selected.as_deref() == Some(id.as_str());
             let glyph = div().size(px(16.)).flex().items_center().justify_center();
@@ -707,8 +741,34 @@ impl Workspace {
                     .text_color(theme::ink3())
                     .child(row.unresolved.to_string())
             });
+            let dragged = DraggedChannel {
+                id: id.clone(),
+                index,
+                name: row.channel.name.clone(),
+            };
+            // Above the row while dragging, so the line can show where it lands without moving
+            // anything. A row dragged downward lands below the one it is dropped on.
+            let drop_target = dragging.then(|| {
+                div()
+                    .absolute()
+                    .inset_0()
+                    .drag_over::<DraggedChannel>(move |style, dragged, _, _| {
+                        if dragged.index < index {
+                            style.border_b_2().border_color(theme::accent())
+                        } else if dragged.index > index {
+                            style.border_t_2().border_color(theme::accent())
+                        } else {
+                            style
+                        }
+                    })
+                    .on_drop(cx.listener(move |this, dragged: &DraggedChannel, _, cx| {
+                        this.move_channel(&dragged.id, index, cx);
+                    }))
+            });
             let mut line = div()
                 .id(SharedString::from(id.clone()))
+                .debug_selector(|| format!("channel-row-{index}"))
+                .relative()
                 .h(px(30.))
                 .px(px(8.))
                 .gap(px(8.))
@@ -719,6 +779,12 @@ impl Workspace {
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.select(id.clone(), window, cx);
                 }))
+                .on_drag(dragged, |dragged, _, _, cx| {
+                    cx.new(|_| DraggedChannelPreview {
+                        name: dragged.name.clone(),
+                    })
+                })
+                .children(drop_target)
                 .child(glyph)
                 .child(
                     div()

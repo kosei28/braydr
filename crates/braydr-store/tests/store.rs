@@ -412,6 +412,30 @@ fn unread_items_list_main_timelines_and_threads_newest_first() {
 }
 
 #[test]
+fn channels_stay_where_they_are_moved() {
+    let mut s = Store::in_memory().unwrap();
+    let a = s.create_channel("a", &launch()).unwrap().channel_id;
+    let b = s.create_channel("b", &launch()).unwrap().channel_id;
+    let c = s.create_channel("c", &launch()).unwrap().channel_id;
+    let names =
+        |s: &Store| -> Vec<String> { s.channels().unwrap().into_iter().map(|c| c.name).collect() };
+    assert_eq!(names(&s), ["c", "b", "a"], "new channels come first");
+
+    s.move_channel(&c, 2).unwrap();
+    assert_eq!(names(&s), ["b", "a", "c"]);
+    s.move_channel(&a, 0).unwrap();
+    assert_eq!(names(&s), ["a", "b", "c"]);
+
+    s.user_post_main(&c, "投稿").unwrap();
+    assert_eq!(names(&s), ["a", "b", "c"], "posts do not reorder");
+    s.create_channel("d", &launch()).unwrap();
+    assert_eq!(names(&s), ["d", "a", "b", "c"]);
+    s.delete_channel(&b).unwrap();
+    assert_eq!(names(&s), ["d", "a", "c"]);
+    assert_eq!(s.move_channel("none", 0), Err(Error::ChannelNotFound));
+}
+
+#[test]
 fn search_finds_japanese_in_main_and_threads() {
     let (mut s, ch) = setup();
     let other = s.create_channel("別", &launch()).unwrap().channel_id;
