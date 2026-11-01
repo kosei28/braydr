@@ -312,6 +312,32 @@ fn unread_axes_are_independent() {
 }
 
 #[test]
+fn unread_threads_count_for_the_channel_until_read() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = thread.thread_id.as_str();
+    assert!(
+        !s.has_unread_thread(&ch, false).unwrap(),
+        "own reply is read"
+    );
+    let reply = s
+        .agent_post_thread(&ch, t, "返答", Some(&thread.last_message_id))
+        .unwrap();
+    assert!(s.has_unread_thread(&ch, false).unwrap());
+    assert!(s.has_unread_thread(&ch, true).unwrap());
+
+    s.agent_resolve(&ch, t, &reply.message_id).unwrap();
+    assert!(
+        s.has_unread_thread(&ch, false).unwrap(),
+        "resolved still counts"
+    );
+    assert!(
+        !s.has_unread_thread(&ch, true).unwrap(),
+        "but not as unresolved"
+    );
+}
+
+#[test]
 fn search_finds_japanese_in_main_and_threads() {
     let (mut s, ch) = setup();
     let other = s.create_channel("別", &launch()).unwrap().channel_id;

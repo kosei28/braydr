@@ -53,7 +53,8 @@ pub struct ChannelRow {
     blocked: bool,
     pub start_failed: bool,
     unresolved: i64,
-    main_unread: bool,
+    unread: bool,
+    unresolved_unread: bool,
 }
 
 pub struct CreateForm {
@@ -209,9 +210,11 @@ impl Workspace {
                 let id = channel.channel_id.clone();
                 let store = self.rt.store();
                 let unresolved = store.unresolved_count(&id).unwrap_or(0);
-                let main_unread = store
+                let unread = store
                     .has_unread(braydr_core::Scope::Main { channel_id: &id })
-                    .unwrap_or(false);
+                    .unwrap_or(false)
+                    || store.has_unread_thread(&id, false).unwrap_or(false);
+                let unresolved_unread = store.has_unread_thread(&id, true).unwrap_or(false);
                 drop(store);
                 let state = self.rt.cached_state(&id);
                 ChannelRow {
@@ -221,7 +224,8 @@ impl Workspace {
                     state,
                     channel,
                     unresolved,
-                    main_unread,
+                    unread,
+                    unresolved_unread,
                 }
             })
             .collect();
@@ -655,7 +659,7 @@ impl Workspace {
             let glyph = div().size(px(16.)).flex().items_center().justify_center();
             let glyph = if row.stopped || row.blocked {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::warn()))
-            } else if row.main_unread {
+            } else if row.unread {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::unread()))
             } else {
                 glyph.child(div().size(px(5.)).rounded_full().bg(theme::ink4()))
@@ -1093,6 +1097,7 @@ impl Workspace {
                             .px(px(8.))
                             .flex()
                             .items_center()
+                            .gap(px(6.))
                             .rounded(px(7.))
                             .cursor_pointer()
                             .hover(|style| style.bg(theme::tint()))
@@ -1101,6 +1106,10 @@ impl Workspace {
                             .on_mouse_down(MouseButton::Left, stop_drag)
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.open_unresolved(window, cx)),
+                            )
+                            .children(
+                                row.unresolved_unread
+                                    .then(|| div().size(px(7.)).rounded_full().bg(theme::unread())),
                             )
                             .child(format!("未解決 {}", row.unresolved))
                     }))
