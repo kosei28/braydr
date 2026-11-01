@@ -412,3 +412,76 @@ fn dragging_a_pane_edge_resizes_and_remembers(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_eq!(PaneWidths::load(&rt).sidebar, start);
 }
+
+#[gpui_kit::test]
+fn a_release_under_a_cover_still_counts(cx: &mut TestAppContext) {
+    let rt = runtime();
+    rt.store().create_channel("c", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+    let start = view.read_with(cx, |this, _| this.shown.sidebar);
+    let at = point(px(start - 4.), px(100.));
+    let none = Modifiers::none();
+    // The grip's cover occludes the workspace while the button comes up.
+    cx.simulate_mouse_move(at, None, none);
+    cx.simulate_mouse_down(at, MouseButton::Left, none);
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.pointer_down));
+    cx.simulate_mouse_up(at, MouseButton::Left, none);
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(!this.pointer_down));
+}
+
+#[gpui_kit::test]
+fn a_release_outside_the_window_shows_on_the_next_move(cx: &mut TestAppContext) {
+    let rt = runtime();
+    rt.store().create_channel("c", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+    let at = point(px(600.), px(100.));
+    let none = Modifiers::none();
+    cx.simulate_mouse_move(at, None, none);
+    cx.simulate_mouse_down(at, MouseButton::Left, none);
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.pointer_down));
+    // No release arrives. The pointer simply comes back with the button up.
+    cx.simulate_mouse_move(at, None, none);
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(!this.pointer_down));
+}
+
+#[gpui_kit::test]
+fn a_timeline_at_its_end_reads_up_to_the_newest_message(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let first = rt.store().user_post_main(&channel, "最初").unwrap();
+    let reply = rt
+        .store()
+        .agent_post_main(&channel, "返事", Some(&first.message_id))
+        .unwrap();
+    let scope = Scope::Main {
+        channel_id: &channel,
+    };
+    // Open with nothing unread, then get a reply: the list stays anchored at its end.
+    rt.store().mark_read(scope, &reply.message_id).unwrap();
+    let (view, cx) = open(cx, &rt);
+    let newest = rt
+        .store()
+        .agent_post_main(&channel, "続き", Some(&reply.message_id))
+        .unwrap();
+    rt.bump();
+    poll(cx);
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        let timeline = this.timeline.as_ref().unwrap();
+        assert!(timeline.is_at_bottom());
+        timeline.track_read(&rt);
+    });
+    assert_eq!(
+        rt.store().read_position(scope).unwrap().as_deref(),
+        Some(newest.message_id.as_str())
+    );
+}

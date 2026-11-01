@@ -11,10 +11,11 @@ use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaSt
 use gpui_kit::component::text::TextView;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle, Div, Entity, FocusHandle,
-    Focusable as _, FontWeight, InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent,
-    MouseMoveEvent, ParentElement as _, Render, ScrollHandle, SharedString,
-    StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, div, list, px,
+    AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle, DispatchPhase, Div, Entity,
+    FocusHandle, Focusable as _, FontWeight, InteractiveElement as _, IntoElement, MouseButton,
+    MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _, Render, ScrollHandle,
+    SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, canvas,
+    div, list, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
@@ -85,7 +86,7 @@ pub struct Workspace {
     /// `widths` fitted to the window, as last drawn.
     pub shown: PaneWidths,
     resize: Option<Resize>,
-    pointer_down: bool,
+    pub pointer_down: bool,
     bounds_changed: bool,
     silent: bool,
     highlight: Option<String>,
@@ -667,7 +668,7 @@ impl Workspace {
                         .border_1()
                         .border_color(theme::warn()),
                 )
-            } else if row.main_unread && !selected {
+            } else if row.main_unread {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::unread()))
             } else {
                 glyph.child(div().size(px(5.)).rounded_full().bg(theme::ink4()))
@@ -859,11 +860,6 @@ impl Workspace {
             footer = match link {
                 Some(ThreadLink { thread, unread }) => {
                     let done = thread.resolved_at.is_some();
-                    let open_now = self
-                        .pane
-                        .as_ref()
-                        .and_then(|p| p.thread.as_ref())
-                        .is_some_and(|t| t.thread_id == thread.thread_id);
                     footer.child(
                         div()
                             .id(("thread-link", ix))
@@ -897,7 +893,7 @@ impl Workspace {
                                     .child(ui::when(thread.last_message_at)),
                             )
                             .children(
-                                (*unread && !open_now)
+                                unread
                                     .then(|| div().size(px(7.)).rounded_full().bg(theme::unread())),
                             ),
                     )
@@ -1658,6 +1654,38 @@ impl Workspace {
             .hover(|grip| grip.bg(theme::hairline()))
     }
 
+    /// Notices the release wherever it happens. A listener on the root would miss it when
+    /// something occludes the root, and reading would then wait for the next click. The button
+    /// can also come up outside the window, which the next move reveals.
+    fn render_pointer_watch(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let view = cx.entity().downgrade();
+        canvas(
+            |_, _, _| {},
+            move |_, _, window, _| {
+                let released = view.clone();
+                window.on_mouse_event(move |_: &MouseUpEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture {
+                        let _ = released.update(cx, |this, cx| this.release_pointer(cx));
+                    }
+                });
+                let moved = view.clone();
+                window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
+                    if phase == DispatchPhase::Capture && event.pressed_button.is_none() {
+                        let _ = moved.update(cx, |this, cx| this.release_pointer(cx));
+                    }
+                });
+            },
+        )
+        .absolute()
+        .size_0()
+    }
+
+    fn release_pointer(&mut self, cx: &mut Context<Self>) {
+        if std::mem::take(&mut self.pointer_down) {
+            cx.notify();
+        }
+    }
+
     /// Takes every pointer event during a drag, so nothing under it reacts and the cursor holds.
     fn render_resize_cover(&self, cx: &mut Context<Self>) -> impl IntoElement {
         div()
@@ -1713,10 +1741,6 @@ impl Render for Workspace {
             .bg(theme::window())
             .font_family(theme::SANS)
             .capture_any_mouse_down(cx.listener(|this, _, _, _| this.pointer_down = true))
-            .capture_any_mouse_up(cx.listener(|this, _, _, cx| {
-                this.pointer_down = false;
-                cx.notify();
-            }))
             .on_action(cx.listener(|this, _: &Dismiss, window, cx| {
                 this.dismiss(window, cx);
             }))
@@ -1732,6 +1756,7 @@ impl Render for Workspace {
                 this.open_search(window, cx);
                 cx.stop_propagation();
             }))
+            .child(self.render_pointer_watch(cx))
             .children(self.sidebar_open.then(|| self.render_sidebar(cx)))
             .child(
                 div()

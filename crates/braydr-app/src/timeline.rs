@@ -10,6 +10,9 @@ use gpui_kit::{ListAlignment, ListOffset, ListState, px};
 
 pub type Rt = Arc<Runtime<Client>>;
 
+/// Layout rounds, so a row at the very bottom can end a fraction past the viewport.
+const BOTTOM_TOLERANCE: f32 = 2.;
+
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum OwnedScope {
     Main(String),
@@ -159,27 +162,28 @@ impl Timeline {
         let Some(last) = self.rows.len().checked_sub(1) else {
             return true;
         };
+        if self.follows_end() {
+            return true;
+        }
         let viewport = self.list.viewport_bounds();
         self.list
             .bounds_for_item(last)
-            .is_some_and(|bounds| bounds.bottom() <= viewport.bottom() + px(2.))
+            .is_some_and(|bounds| bounds.bottom() <= viewport.bottom() + px(BOTTOM_TOLERANCE))
     }
 
-    /// Scrolls so the message is at the top of the view.
-    pub fn reveal(&self, message_id: &str) {
-        let row = self.rows.iter().position(
-            |row| matches!(row, Row::Message(message, _) if message.message_id == message_id),
-        );
-        if let Some(item_ix) = row {
-            self.list.scroll_to(ListOffset {
-                item_ix,
-                offset_in_item: px(0.),
+    /// A list scrolled to its end anchors there, past the last row, and reports no row bounds.
+    fn follows_end(&self) -> bool {
+        self.list.logical_scroll_top().item_ix >= self.rows.len()
+    }
+
+    /// The newest message whose bottom edge is in view.
+    fn newest_seen(&self) -> Option<String> {
+        if self.follows_end() {
+            return self.rows.iter().rev().find_map(|row| match row {
+                Row::Message(message, _) => Some(message.message_id.clone()),
+                _ => None,
             });
         }
-    }
-
-    /// Advances the read position to what the user has actually seen.
-    pub fn track_read(&self, rt: &Rt) {
         let viewport = self.list.viewport_bounds();
         let mut laid = Vec::new();
         let mut ix = self.list.logical_scroll_top().item_ix;
@@ -199,9 +203,32 @@ impl Timeline {
                 bottom: *bottom,
             })
             .collect();
-        let Some(seen) = read::newest_seen(&refs, f32::from(viewport.bottom())) else {
+        read::newest_seen(&refs, f32::from(viewport.bottom()) + BOTTOM_TOLERANCE).map(str::to_owned)
+    }
+
+    /// Scrolls so the message is at the top of the view.
+    pub fn reveal(&self, message_id: &str) {
+        let row = self.rows.iter().position(
+            |row| matches!(row, Row::Message(message, _) if message.message_id == message_id),
+        );
+        if let Some(item_ix) = row {
+            self.list.scroll_to(ListOffset {
+                item_ix,
+                offset_in_item: px(0.),
+            });
+        }
+    }
+
+    /// Advances the read position to what the user has actually seen.
+    pub fn track_read(&self, rt: &Rt) {
+        // Nothing has been drawn yet, so nothing has been seen.
+        if self.list.viewport_bounds().size.height <= px(0.) {
+            return;
+        }
+        let Some(seen) = self.newest_seen() else {
             return;
         };
+        let seen = seen.as_str();
         let scope = self.scope.as_scope();
         let current = rt.store().read_position(scope).ok().flatten();
         if read::advance(current.as_deref(), Some(seen)) != current.as_deref()
