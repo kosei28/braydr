@@ -3,8 +3,10 @@
 pub mod error;
 pub mod launch;
 pub mod model;
+pub mod notification;
 pub mod notify;
 pub mod read;
+pub mod schedule;
 pub mod validate;
 
 pub use error::{Error, Result};

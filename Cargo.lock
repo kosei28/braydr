@@ -82,6 +82,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "braydr-herdr"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "braydr-ipc"
 version = "0.1.0"
 dependencies = [
@@ -103,6 +112,18 @@ dependencies = [
  "rmcp",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "braydr-runtime"
+version = "0.1.0"
+dependencies = [
+ "braydr-core",
+ "braydr-herdr",
+ "braydr-ipc",
+ "braydr-store",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]

@@ -33,23 +33,34 @@ pub fn handle(store: &mut Store, request: &Request) -> Response {
 }
 
 pub fn serve(listener: UnixListener, store: Arc<Mutex<Store>>) {
+    serve_with(
+        listener,
+        Arc::new(move |request: &Request| {
+            handle(
+                &mut store.lock().expect("the store lock is not poisoned"),
+                request,
+            )
+        }),
+    );
+}
+
+pub type Handler = Arc<dyn Fn(&Request) -> Response + Send + Sync>;
+
+pub fn serve_with(listener: UnixListener, handler: Handler) {
     for stream in listener.incoming().flatten() {
-        let store = store.clone();
+        let handler = handler.clone();
         std::thread::spawn(move || {
-            let _ = connection(stream, &store);
+            let _ = connection(stream, &handler);
         });
     }
 }
 
-fn connection(stream: UnixStream, store: &Mutex<Store>) -> io::Result<()> {
+fn connection(stream: UnixStream, handler: &Handler) -> io::Result<()> {
     let mut writer = stream.try_clone()?;
     for line in BufReader::new(stream).lines() {
         let line = line?;
         let response = match serde_json::from_str::<Request>(&line) {
-            Ok(request) => handle(
-                &mut store.lock().expect("the store lock is not poisoned"),
-                &request,
-            ),
+            Ok(request) => handler(&request),
             Err(error) => Response::Error(views::error(&braydr_core::Error::InvalidArgument {
                 message: error.to_string(),
             })),

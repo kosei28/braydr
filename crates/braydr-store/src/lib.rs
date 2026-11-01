@@ -784,19 +784,27 @@ impl Store {
 
     // Nudges (`docs/product-spec.md` 10.1)
 
-    pub fn main_needs_response(&self, channel_id: &str) -> Result<bool> {
-        let last: Option<(String, Option<String>)> = self
+    /// The newest main message, if it is from the user and has no child thread.
+    pub fn main_awaiting_response(&self, channel_id: &str) -> Result<Option<(String, i64)>> {
+        let last: Option<(String, i64, String, Option<String>)> = self
             .conn
             .query_row(
-                "SELECT m.author, (SELECT t.thread_id FROM threads t WHERE t.parent_message_id = m.message_id)
+                "SELECT m.message_id, m.created_at, m.author,
+                        (SELECT t.thread_id FROM threads t WHERE t.parent_message_id = m.message_id)
                  FROM messages m WHERE m.channel_id = ?1 AND m.thread_id IS NULL
                  ORDER BY m.message_id DESC LIMIT 1",
                 [channel_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
             .optional()
             .db()?;
-        Ok(matches!(last, Some((author, None)) if author == "user"))
+        Ok(last.and_then(|(id, at, author, child)| {
+            (author == "user" && child.is_none()).then_some((id, at))
+        }))
+    }
+
+    pub fn main_needs_response(&self, channel_id: &str) -> Result<bool> {
+        Ok(self.main_awaiting_response(channel_id)?.is_some())
     }
 }
 

@@ -2,6 +2,7 @@
 
 pub const DEFAULT_COMMAND: &str = "claude";
 pub const DEFAULT_PROMPT: &str = "/braydr";
+pub const ENV_CHANNEL_ID: &str = "BRAYDR_CHANNEL_ID";
 
 /// Quotes `value` as one POSIX shell word.
 pub fn shell_quote(value: &str) -> String {

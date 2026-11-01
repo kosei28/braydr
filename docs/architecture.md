@@ -78,12 +78,13 @@ crates/
 ├ braydr-core    ドメインの型と規則。GPUI と SQLite に依存しない
 ├ braydr-store   SQLite の実装。スキーマ、マイグレーション、検索
 ├ braydr-herdr   herdr-core の JSON-RPC クライアント
+├ braydr-runtime セッション、配送、再通知、応答の監視。UI に依存しない
 ├ braydr-ipc     ツールの定義と JSON、アプリとサイドカーの間のプロトコル
 ├ braydr-mcp     サイドカーのバイナリ（rmcp + tokio）
 └ braydr-app     アプリのバイナリ（gpui-kit）
 ```
 
-依存は `app → core / store / herdr / ipc`、`mcp → ipc` の向きだけにする。
+依存は `app → runtime → core / store / herdr / ipc`、`mcp → ipc` の向きだけにする。
 UI なしで規則を試せるよう、仕様の判断は `braydr-core` に集める。
 
 ### スレッドと非同期
@@ -308,6 +309,20 @@ macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`
 エージェントが止まる原因は確認画面、MCP やスキルの未設定など複数あり、アプリからは区別できない。
 そこで、ツールの呼び出しがないまま 60 秒経ったことだけを検知し、原因は断定しない（`product-spec.md` 4.6）。
 IPC サーバーはチャンネルごとに最後のツール呼び出しの時刻を保持する。
+
+### 一周の検証（2026-11-01、hc 0.1.16、Claude Code 2.1.288、Haiku）
+
+アプリなしで `braydr-runtime` の `examples/e2e.rs` を動かし、本物の `hc` と Claude Code で次を確かめた。
+
+| 流れ | 結果 |
+| --- | --- |
+| チャンネルを作成してセッションを起動 | 起動した。空のチャンネルには投稿しなかった |
+| メインへの投稿 → 通知 → エージェントの返信 | 8 秒で返信 |
+| スレッドの作成 → 返信 → エージェントの解決 | 8 秒で解決 |
+| 解決済みへの投稿 → 再開 → 返信 | 5 秒で返信。履歴に解決と再開が残った |
+| 新しいセッションの開始 → 履歴の読み直し → 未対応の依頼に返信 | 10 秒で返信。古いセッションは停止した |
+
+実機で未確認のもの: `events.subscribe`、再通知、停止の検知。これらは偽の core でのテストだけで確かめている。
 
 ### 検証結果（2026-11-01、gpui-kit 0.8.1、SQLite 3.54.1）
 
