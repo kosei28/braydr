@@ -64,6 +64,7 @@ const MIGRATIONS: &[&str] = &[
             value TEXT NOT NULL
         );
         "#,
+    "ALTER TABLE channels ADD COLUMN session_responded INTEGER NOT NULL DEFAULT 0;",
 ];
 
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {

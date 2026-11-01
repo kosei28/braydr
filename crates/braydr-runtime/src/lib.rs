@@ -6,7 +6,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use braydr_core::launch::{ENV_CHANNEL_ID, shell_line};
+use braydr_core::launch::{ENV_CHANNEL_ID, in_user_shell, shell_line};
 use braydr_core::notification::{self, NudgeMain, NudgeThread};
 use braydr_core::schedule::{NudgeTimer, ResponseWatch};
 use braydr_core::*;
@@ -146,7 +146,7 @@ impl<C: Core + 'static> Runtime<C> {
     fn start(&self, channel_id: &str) -> SessionResult<Terminal> {
         let channel = self.store().channel(channel_id)?;
         let spec = RunSpec {
-            line: shell_line(&channel.command, &channel.prompt),
+            line: in_user_shell(&shell_line(&channel.command, &channel.prompt)),
             cwd: channel.cwd,
             env: BTreeMap::from([(ENV_CHANNEL_ID.to_owned(), channel_id.to_owned())]),
             labels: labels_for(Some(channel_id)),
@@ -356,12 +356,17 @@ impl<C: Core + 'static> Runtime<C> {
         sender
     }
 
+    /// Input only reaches a session that has called a tool. Before that the program may be showing
+    /// a prompt, where the Enter that ends a notification would answer it. A session reads the
+    /// history when it starts, so it does not miss what was skipped here.
+    fn ready_address(&self, channel_id: &str) -> Option<String> {
+        let store = self.store();
+        let address = store.channel(channel_id).ok()?.session_id?;
+        store.session_responded(channel_id).ok()?.then_some(address)
+    }
+
     fn send_with_retry(&self, channel_id: &str, text: &str) {
-        let Ok(Some(address)) = self
-            .store()
-            .channel(channel_id)
-            .map(|channel| channel.session_id)
-        else {
+        let Some(address) = self.ready_address(channel_id) else {
             return;
         };
         for attempt in 1..=SEND_ATTEMPTS {
@@ -422,11 +427,10 @@ impl<C: Core + 'static> Runtime<C> {
                 last_message_at: views::iso(at),
             });
             let text = notification::nudge(&channel.name, &threads, main.as_ref(), more);
-            let address = channel
-                .session_id
-                .as_deref()
-                .expect("a running session has an address");
-            if let Err(error) = self.core.send(address, &text) {
+            let Some(address) = self.ready_address(&channel.channel_id) else {
+                continue;
+            };
+            if let Err(error) = self.core.send(&address, &text) {
                 tracing::warn!(channel_id = channel.channel_id, %error, "nudge failed");
             }
         }
@@ -445,6 +449,10 @@ impl<C: Core + 'static> Runtime<C> {
     pub fn handle_tool(&self, request: &Request) -> Response {
         if let Some(channel_id) = request.channel.as_deref() {
             self.with_channel(channel_id, |state| state.watch.tool_called());
+            // Before the tool reads anything: a post the send skipped is then one this read sees.
+            if let Err(error) = self.store().mark_session_responded(channel_id) {
+                tracing::warn!(channel_id, %error, "cannot record the response");
+            }
         }
         let response = server::handle(&mut self.store(), request);
         self.bump();

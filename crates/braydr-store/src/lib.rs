@@ -271,7 +271,10 @@ impl Store {
         let changed = self
             .conn
             .execute(
-                "UPDATE channels SET session_id = ?2 WHERE channel_id = ?1",
+                "UPDATE channels
+                 SET session_responded = CASE WHEN session_id IS ?2 THEN session_responded ELSE 0 END,
+                     session_id = ?2
+                 WHERE channel_id = ?1",
                 params![channel_id, session_id],
             )
             .db()?;
@@ -281,12 +284,37 @@ impl Store {
         Ok(())
     }
 
+    /// Records that the current session has called a tool, so it is ready for input.
+    pub fn mark_session_responded(&mut self, channel_id: &str) -> Result<()> {
+        self.conn
+            .execute(
+                "UPDATE channels SET session_responded = 1
+                 WHERE channel_id = ?1 AND session_responded = 0",
+                [channel_id],
+            )
+            .db()?;
+        Ok(())
+    }
+
+    /// Whether the current session has called a tool since it started.
+    pub fn session_responded(&self, channel_id: &str) -> Result<bool> {
+        self.conn
+            .query_row(
+                "SELECT session_responded FROM channels WHERE channel_id = ?1",
+                [channel_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .db()?
+            .ok_or(Error::ChannelNotFound)
+    }
+
     /// Clears the session and stores the settings of the next one.
     pub fn prepare_new_session(&mut self, channel_id: &str, launch: &LaunchConfig) -> Result<()> {
         let changed = self
             .conn
             .execute(
-                "UPDATE channels SET session_id = NULL, cwd = ?2, command = ?3, prompt = ?4 WHERE channel_id = ?1",
+                "UPDATE channels SET session_id = NULL, session_responded = 0, cwd = ?2, command = ?3, prompt = ?4 WHERE channel_id = ?1",
                 params![channel_id, launch.cwd, launch.command, launch.prompt],
             )
             .db()?;

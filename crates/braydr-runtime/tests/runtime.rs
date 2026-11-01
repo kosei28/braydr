@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use braydr_core::launch::in_user_shell;
 use braydr_core::*;
 use braydr_herdr::{Core, Error, Result, RunSpec, Terminal};
 use braydr_ipc::{Request, Response};
@@ -137,6 +138,16 @@ fn env() -> Env {
     Env { rt, core, clock }
 }
 
+/// What a session does first when it is up: calls a tool.
+fn session_ready(e: &Env, channel_id: &str) {
+    let response = e.rt.handle_tool(&Request {
+        channel: Some(channel_id.to_owned()),
+        tool: "braydr_channel_get".into(),
+        args: json!({}),
+    });
+    assert!(matches!(response, Response::Result(_)));
+}
+
 fn wait_sent(core: &Fake, count: usize) -> Vec<(String, String)> {
     let start = Instant::now();
     loop {
@@ -155,7 +166,7 @@ fn create_starts_a_session_with_the_channel_settings() {
     assert!(failure.is_none());
     assert_eq!(channel.session_id.as_deref(), Some("t1"));
     let runs = e.core.runs.lock().unwrap();
-    assert_eq!(runs[0].line, "claude --model opus '/braydr'");
+    assert_eq!(runs[0].line, in_user_shell("claude --model opus '/braydr'"));
     assert_eq!(runs[0].cwd, "/repo");
     assert_eq!(runs[0].env["BRAYDR_CHANNEL_ID"], channel.channel_id);
     assert_eq!(runs[0].labels["channel"], channel.channel_id);
@@ -182,6 +193,7 @@ fn notifications_keep_posting_order_and_format() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
     let ch = channel.channel_id;
+    session_ready(&e, &ch);
     let parent = e.rt.post_main(&ch, "親").unwrap();
     let first = e.rt.reply(&ch, &parent.message_id, "最初の返信").unwrap();
     assert!(first.created);
@@ -211,6 +223,7 @@ fn notifications_keep_posting_order_and_format() {
 fn delivery_retries_transient_errors_and_stops_on_a_dead_session() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    session_ready(&e, &channel.channel_id);
     e.core.send_failures.lock().unwrap().push("internal");
     e.rt.post_main(&channel.channel_id, "再送").unwrap();
     assert_eq!(wait_sent(&e.core, 1).len(), 1);
@@ -243,7 +256,10 @@ fn new_session_stops_the_old_one_and_saves_settings() {
         (saved.cwd.as_str(), saved.session_id.as_deref()),
         ("/other", Some("t2"))
     );
-    assert_eq!(e.core.runs.lock().unwrap()[1].line, "claude '/braydr 続き'");
+    assert_eq!(
+        e.core.runs.lock().unwrap()[1].line,
+        in_user_shell("claude '/braydr 続き'")
+    );
 
     e.core.live.lock().unwrap().clear();
     assert_eq!(
@@ -299,6 +315,7 @@ fn nudges_wait_then_repeat_until_resolved() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
     let ch = channel.channel_id;
+    session_ready(&e, &ch);
     let parent = e.rt.post_main(&ch, "依頼").unwrap();
     wait_sent(&e.core, 1);
     let nudges = |core: &Fake| {
@@ -339,6 +356,7 @@ fn nudges_wait_then_repeat_until_resolved() {
 fn no_nudge_to_a_stopped_session() {
     let e = env();
     let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    session_ready(&e, &channel.channel_id);
     e.rt.post_main(&channel.channel_id, "依頼").unwrap();
     wait_sent(&e.core, 1);
     e.core.live.lock().unwrap().clear();
@@ -368,4 +386,43 @@ fn silence_ends_with_any_tool_call() {
     assert!(!e.rt.is_silent(&ch));
     e.clock.fetch_add(1, Ordering::SeqCst);
     assert!(e.rt.is_silent(&ch));
+}
+
+/// Claude Code's trust prompt defaults to "No, exit", so one Enter ends the session.
+#[test]
+fn nothing_reaches_a_session_before_its_first_tool_call() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    e.rt.post_main(&ch, "早すぎる投稿").unwrap();
+    e.clock.fetch_add(60 * 60 * 1000, Ordering::SeqCst);
+    e.rt.tick(1).unwrap();
+    e.clock.fetch_add(60 * 60 * 1000, Ordering::SeqCst);
+    e.rt.tick(1).unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(e.core.sent.lock().unwrap().is_empty());
+
+    session_ready(&e, &ch);
+    e.rt.post_main(&ch, "次の投稿").unwrap();
+    let sent = wait_sent(&e.core, 1);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0].1.contains("次の投稿"));
+}
+
+#[test]
+fn a_new_session_has_to_respond_again_but_a_restart_does_not() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    session_ready(&e, &ch);
+
+    // An app restart finds the same terminal, which is still ready.
+    e.rt.reconcile().unwrap();
+    assert!(e.rt.store().session_responded(&ch).unwrap());
+
+    e.rt.new_session(&ch, &launch()).unwrap();
+    assert!(!e.rt.store().session_responded(&ch).unwrap());
+    e.rt.post_main(&ch, "新しいセッションへ").unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(e.core.sent.lock().unwrap().is_empty());
 }

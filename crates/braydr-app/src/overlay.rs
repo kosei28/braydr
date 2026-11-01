@@ -5,7 +5,7 @@ use braydr_core::{LaunchConfig, Message, Scope, Thread, ThreadFilter, validate};
 use braydr_runtime::SessionState;
 use gpui_kit::component::input::{Input, InputEvent, InputState, TextareaState};
 use gpui_kit::{
-    AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, FontWeight, HighlightStyle,
+    AnyElement, AppContext as _, Context, Div, Entity, FontWeight, HighlightStyle,
     InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, PathPromptOptions,
     ScrollHandle, StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Window,
     div, px,
@@ -503,6 +503,7 @@ impl Workspace {
         let attach = row.channel.session_id.as_ref().map(|session| {
             let command = format!("hc attach {session}");
             let copied = command.clone();
+            let copy_icon = self.copy_icon("menu-attach", theme::ink3());
             div()
                 .id("menu-attach")
                 .h(px(32.))
@@ -517,10 +518,10 @@ impl Workspace {
                 .text_size(px(12.))
                 .text_color(theme::ink2())
                 .child(command)
-                .child(ui::icon("copy", 14., theme::ink3()))
-                .on_click(move |_, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(copied.clone()));
-                })
+                .child(copy_icon)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.copy("menu-attach".to_owned(), copied.clone(), cx);
+                }))
         });
         ui::floating(10.)
             .absolute()
@@ -697,6 +698,7 @@ impl Workspace {
                                         .appearance(false)
                                         .bordered(false)
                                         .p_0()
+                                        .line_height(px(24.))
                                         .text_size(px(16.)),
                                 ),
                             )

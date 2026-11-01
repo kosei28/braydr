@@ -40,6 +40,9 @@ pub struct ThreadLink {
 
 #[derive(Clone)]
 pub enum Row {
+    /// A thread's parent. It scrolls with the replies but belongs to the main timeline, so it
+    /// takes no part in the thread's read position.
+    Parent(Message),
     Message(Message, Option<Box<ThreadLink>>),
     Event(StateEvent),
     Unread,
@@ -50,7 +53,7 @@ impl Row {
         match (self, other) {
             (Row::Message(a, _), Row::Message(b, _)) => a.message_id == b.message_id,
             (Row::Event(a), Row::Event(b)) => a.event_id == b.event_id,
-            (Row::Unread, Row::Unread) => true,
+            (Row::Parent(_), Row::Parent(_)) | (Row::Unread, Row::Unread) => true,
             _ => false,
         }
     }
@@ -60,11 +63,12 @@ pub struct Timeline {
     pub scope: OwnedScope,
     pub rows: Arc<Vec<Row>>,
     pub list: ListState,
+    parent: Option<Message>,
     divider_before: Option<String>,
 }
 
 impl Timeline {
-    pub fn open(rt: &Rt, scope: OwnedScope) -> Self {
+    pub fn open(rt: &Rt, scope: OwnedScope, parent: Option<Message>) -> Self {
         let divider_before = rt.store().first_unread(scope.as_scope()).ok().flatten();
         // Main reads from the bottom up; a thread reads down from its parent.
         let alignment = match scope {
@@ -75,6 +79,7 @@ impl Timeline {
             scope,
             rows: Arc::new(Vec::new()),
             list: ListState::new(0, alignment, px(600.)),
+            parent,
             divider_before,
         };
         timeline.reload(rt);
@@ -82,9 +87,11 @@ impl Timeline {
             .rows
             .iter()
             .position(|row| matches!(row, Row::Unread));
+        // When every reply is unread, keep the parent they answer in view.
+        let first_row = timeline.parent.is_some().then_some(1);
         match divider {
             Some(row) => timeline.list.scroll_to(ListOffset {
-                item_ix: row,
+                item_ix: if Some(row) == first_row { 0 } else { row },
                 offset_in_item: px(0.),
             }),
             None => timeline.list.scroll_to_end(),
@@ -113,7 +120,8 @@ impl Timeline {
             OwnedScope::Thread(thread_id) => rt.store().state_events(thread_id).unwrap_or_default(),
             OwnedScope::Main(_) => Vec::new(),
         };
-        let mut rows = Vec::with_capacity(messages.len() + events.len() + 1);
+        let mut rows = Vec::with_capacity(messages.len() + events.len() + 2);
+        rows.extend(self.parent.clone().map(Row::Parent));
         let mut events = events.into_iter().peekable();
         for message in messages {
             while events

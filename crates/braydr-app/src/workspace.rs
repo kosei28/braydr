@@ -12,8 +12,8 @@ use gpui_kit::component::text::TextView;
 use gpui_kit::{
     AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, FocusHandle, Focusable as _,
     FontWeight, InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Render,
-    SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification, Window, div,
-    list, px,
+    ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _, SystemNotification,
+    Window, div, list, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
@@ -24,6 +24,7 @@ gpui_kit::actions!(braydr, [Send, Dismiss, OpenSettings, FindInChannel]);
 
 const BODY_LINE_HEIGHT: f32 = 23.;
 const NOTIFICATION_CHARS: usize = 120;
+const COPIED_FOR: Duration = Duration::from_millis(1500);
 
 /// The right sheet: a thread, or a draft reply before the thread exists.
 pub struct ThreadPane {
@@ -31,6 +32,7 @@ pub struct ThreadPane {
     parent: Message,
     thread: Option<Thread>,
     pub timeline: Option<Timeline>,
+    draft_scroll: ScrollHandle,
     input: Entity<TextareaState>,
     just_reopened: bool,
     send_failed: bool,
@@ -46,7 +48,7 @@ pub struct ChannelRow {
 }
 
 pub struct CreateForm {
-    name: Entity<InputState>,
+    pub name: Entity<InputState>,
     pub fields: LaunchFields,
     error: Option<String>,
 }
@@ -66,6 +68,8 @@ pub struct Workspace {
     pointer_down: bool,
     silent: bool,
     highlight: Option<String>,
+    pub copied: Option<String>,
+    copy_generation: u64,
     announced_through: Option<String>,
     pub notified: HashSet<String>,
     focus: FocusHandle,
@@ -89,6 +93,8 @@ impl Workspace {
             pointer_down: false,
             silent: false,
             highlight: None,
+            copied: None,
+            copy_generation: 0,
             announced_through,
             notified: HashSet::new(),
             focus: cx.focus_handle(),
@@ -100,6 +106,9 @@ impl Workspace {
             .map(|row| row.channel.channel_id.clone())
         {
             this.select(first, window, cx);
+        } else {
+            // With no channels, creating one is the only thing to do.
+            this.start_create(window, cx);
         }
         #[cfg(feature = "screenshot")]
         this.schedule_screenshot(window, cx);
@@ -203,6 +212,7 @@ impl Workspace {
                 pane.timeline = Some(Timeline::open(
                     &rt,
                     OwnedScope::Thread(thread.thread_id.clone()),
+                    Some(pane.parent.clone()),
                 ));
             } else if let Some(timeline) = &mut pane.timeline {
                 timeline.reload(&rt);
@@ -220,6 +230,7 @@ impl Workspace {
         self.timeline = Some(Timeline::open(
             &self.rt,
             OwnedScope::Main(channel_id.clone()),
+            None,
         ));
         let opened = OwnedScope::Main(channel_id.clone());
         self.selected = Some(channel_id);
@@ -250,7 +261,7 @@ impl Workspace {
         draft
     }
 
-    fn start_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn start_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let name = cx.new(|cx| InputState::new(window, cx).placeholder("チャンネル名"));
         cx.subscribe(&name, |_, _, _: &InputEvent, cx| cx.notify())
             .detach();
@@ -361,9 +372,13 @@ impl Workspace {
             .thread_for_parent(&channel_id, &parent.message_id)
             .ok()
             .flatten();
-        let timeline = thread
-            .as_ref()
-            .map(|t| Timeline::open(&self.rt, OwnedScope::Thread(t.thread_id.clone())));
+        let timeline = thread.as_ref().map(|t| {
+            Timeline::open(
+                &self.rt,
+                OwnedScope::Thread(t.thread_id.clone()),
+                Some(parent.clone()),
+            )
+        });
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .auto_grow(1, 8)
@@ -380,6 +395,7 @@ impl Workspace {
             parent,
             thread,
             timeline,
+            draft_scroll: ScrollHandle::new(),
             input,
             just_reopened: false,
             send_failed: false,
@@ -444,15 +460,38 @@ impl Workspace {
             self.close_overlay(window, cx);
             return true;
         }
-        if self.create.is_some() {
-            self.create = None;
-            match self.channels.first().map(|r| r.channel.channel_id.clone()) {
-                Some(first) => self.select(first, window, cx),
-                None => cx.notify(),
-            }
+        // The creation form has nothing to go back to without a channel.
+        if self.create.is_some()
+            && let Some(first) = self.channels.first().map(|r| r.channel.channel_id.clone())
+        {
+            self.select(first, window, cx);
             return true;
         }
         false
+    }
+
+    /// Copies `text` and shows a check on the button named `key` for a moment.
+    pub fn copy(&mut self, key: String, text: String, cx: &mut Context<Self>) {
+        cx.write_to_clipboard(ClipboardItem::new_string(text));
+        self.copied = Some(key);
+        self.copy_generation += 1;
+        let generation = self.copy_generation;
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(COPIED_FOR).await;
+            let _ = this.update(cx, |this, cx| {
+                if this.copy_generation == generation {
+                    this.copied = None;
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+        cx.notify();
+    }
+
+    pub fn copy_icon(&self, key: &str, color: gpui_kit::Rgba) -> impl IntoElement + use<> {
+        let copied = self.copied.as_deref() == Some(key);
+        ui::icon(if copied { "check" } else { "copy" }, 14., color)
     }
 
     /// Highlights a message for a moment, after search.
@@ -683,8 +722,14 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         match row {
+            Row::Parent(parent) => div()
+                .pt(px(8.))
+                .child(self.message(parent, None, usize::MAX / 2, false, cx))
+                .into_any_element(),
+            // More below than above: the footer before it already leaves room, and the label's
+            // line box and the next line's leading are smaller than that.
             Row::Unread => div()
-                .py(px(10.))
+                .pb(px(16.))
                 .flex()
                 .items_center()
                 .gap(px(10.))
@@ -836,11 +881,20 @@ impl Workspace {
             };
         }
         let text = message.text.clone();
-        footer = footer.child(
-            div()
-                .id(("copy", ix))
+        let copy_key = format!("message-{is_main}-{}", message.message_id);
+        let copied = self.copied.as_deref() == Some(copy_key.as_str());
+        let copy_icon = self.copy_icon(&copy_key, theme::ink2());
+        let copy_button = div().id(("copy", ix));
+        // The check stays visible after the pointer leaves, so the result is not missed.
+        let copy_button = if copied {
+            copy_button
+        } else {
+            copy_button
                 .invisible()
                 .group_hover(group.clone(), |style| style.visible())
+        };
+        footer = footer.child(
+            copy_button
                 .size(px(26.))
                 .flex()
                 .items_center()
@@ -848,10 +902,10 @@ impl Workspace {
                 .rounded(px(8.))
                 .bg(theme::tint())
                 .cursor_pointer()
-                .child(ui::icon("copy", 14., theme::ink2()))
-                .on_click(move |_, _, cx| {
-                    cx.write_to_clipboard(ClipboardItem::new_string(text.clone()));
-                }),
+                .child(copy_icon)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.copy(copy_key.clone(), text.clone(), cx);
+                })),
         );
         let highlighted = self.highlight.as_deref() == Some(message.message_id.as_str());
         let mut row = div()
@@ -1162,6 +1216,7 @@ impl Workspace {
             let attach = row.channel.session_id.as_ref().map(|session| {
                 let command = format!("hc attach {session}");
                 let copied = command.clone();
+                let copy_icon = self.copy_icon("banner-attach", theme::ink3());
                 div()
                     .id("attach-command")
                     .flex()
@@ -1174,10 +1229,10 @@ impl Workspace {
                     .text_size(px(12.))
                     .text_color(theme::ink2())
                     .child(command)
-                    .child(ui::icon("copy", 14., theme::ink3()))
-                    .on_click(move |_, _, cx| {
-                        cx.write_to_clipboard(ClipboardItem::new_string(copied.clone()));
-                    })
+                    .child(copy_icon)
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.copy("banner-attach".to_owned(), copied.clone(), cx);
+                    }))
             });
             return Some(
                 base(theme::tint(), "しばらくエージェントの応答がありません")
@@ -1245,13 +1300,24 @@ impl Workspace {
                             ),
                     ),
             );
-        let parent = div()
-            .flex_none()
-            .px(px(20.))
-            .pt(px(8.))
-            .pb(px(6.))
-            .child(self.message(&pane.parent, None, usize::MAX / 2, false, cx));
         let mut replies = div().flex_1().min_h_0().relative();
+        if pane.timeline.is_none() {
+            replies = replies
+                .child(
+                    div()
+                        .id("thread-draft")
+                        .size_full()
+                        .overflow_y_scroll()
+                        .track_scroll(&pane.draft_scroll)
+                        .px(px(20.))
+                        .pt(px(8.))
+                        .child(self.message(&pane.parent, None, usize::MAX / 2, false, cx)),
+                )
+                .child(
+                    gpui_kit::base::Scrollbar::vertical(&pane.draft_scroll)
+                        .mode(gpui_kit::base::ScrollbarMode::Always),
+                );
+        }
         if let Some(timeline) = &pane.timeline {
             let rows = timeline.rows.clone();
             replies = replies
@@ -1294,8 +1360,6 @@ impl Workspace {
                 .border_color(theme::hairline())
                 .overflow_hidden()
                 .child(header)
-                .child(parent)
-                .child(div().flex_none().h(px(1.)).bg(theme::hairline()))
                 .child(replies)
                 .child(
                     div()
@@ -1351,7 +1415,8 @@ impl Workspace {
                                     .appearance(false)
                                     .bordered(false)
                                     .p_0()
-                                    .h_auto()
+                                    .h(px(36.))
+                                    .line_height(px(36.))
                                     .text_size(px(24.)),
                             ),
                     )
@@ -1398,11 +1463,41 @@ impl Workspace {
                             this.open_thread(parent, window, cx);
                         }
                     }
+                    "copied" => {
+                        let last = this.timeline.as_ref().and_then(|timeline| {
+                            timeline.rows.iter().rev().find_map(|row| match row {
+                                Row::Message(m, _) => Some(m.clone()),
+                                _ => None,
+                            })
+                        });
+                        if let Some(m) = last {
+                            // Without the timer, which would end before the capture.
+                            this.copied = Some(format!("message-true-{}", m.message_id));
+                        }
+                    }
+                    "draft" => {
+                        let unthreaded = this.timeline.as_ref().and_then(|timeline| {
+                            timeline.rows.iter().find_map(|row| match row {
+                                Row::Message(m, None) => Some(m.clone()),
+                                _ => None,
+                            })
+                        });
+                        if let Some(parent) = unthreaded {
+                            this.open_thread(parent, window, cx);
+                        }
+                    }
                     "unresolved" => this.open_unresolved(window, cx),
                     "menu" => this.open_menu(window, cx),
                     "rename" => this.open_rename(window, cx),
                     "session" => this.open_session_dialog(window, cx),
-                    "create" => this.start_create(window, cx),
+                    "create" => {
+                        this.start_create(window, cx);
+                        if let Some(form) = &this.create {
+                            form.name.update(cx, |state, cx| {
+                                state.set_value("gjpqy 決済API", window, cx);
+                            });
+                        }
+                    }
                     "collapsed" => this.sidebar_open = false,
                     "search" => {
                         this.open_search(window, cx);

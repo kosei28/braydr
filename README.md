@@ -31,7 +31,8 @@ mkdir -p ~/.claude/skills && cp -R skills/braydr ~/.claude/skills/
 ```
 
 初めて開くディレクトリでは Claude Code が信頼の確認で止まる。チャンネルの作成前に一度 `claude` を
-そのディレクトリで起動して承認するか、`hc attach <session>` で開いて承認する。
+そのディレクトリで起動して承認するか、`hc attach <session>` で開いて承認する。止まっている間の投稿は
+セッションに送らず、承認後にエージェントが履歴から読む。
 
 アプリのデータは `~/Library/Application Support/Braydr/` に置く。
 

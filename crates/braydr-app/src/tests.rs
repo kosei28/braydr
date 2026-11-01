@@ -10,7 +10,7 @@ use braydr_store::Store;
 use gpui_kit::{Entity, TestAppContext, VisualTestContext};
 
 use crate::overlay::Overlay;
-use crate::timeline::Rt;
+use crate::timeline::{Row, Rt};
 use crate::workspace::Workspace;
 
 fn launch() -> LaunchConfig {
@@ -238,4 +238,114 @@ fn opening_a_thread_from_a_tag_shows_its_channel(cx: &mut TestAppContext) {
         assert_eq!(this.selected.as_deref(), Some(other.as_str()));
         assert!(this.pane.is_some());
     });
+}
+
+#[gpui_kit::test]
+fn with_no_channels_the_creation_form_opens_and_stays(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (view, cx) = open(cx, &rt);
+    view.read_with(cx, |this, _| assert!(this.create.is_some()));
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.create.is_some()));
+}
+
+#[gpui_kit::test]
+fn escape_leaves_the_creation_form_for_a_channel(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, cx| {
+        view.update(cx, |this, cx| this.start_create(window, cx));
+    });
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.create.is_some()));
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert!(this.create.is_none());
+        assert_eq!(this.selected.as_deref(), Some(channel.as_str()));
+    });
+}
+
+#[gpui_kit::test]
+fn a_threads_parent_scrolls_with_it_outside_its_read_position(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let (parent, thread_id) = {
+        let mut store = rt.store();
+        let parent = store.user_post_main(&channel, "親").unwrap();
+        let reply = store
+            .user_reply(&channel, &parent.message_id, "依頼")
+            .unwrap();
+        // Everything in the thread is unread: only an agent reply, with nothing read before it.
+        store
+            .agent_post_thread(
+                &channel,
+                &reply.thread.thread_id,
+                "返事",
+                Some(&reply.message.message_id),
+            )
+            .unwrap();
+        (parent, reply.thread.thread_id)
+    };
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, cx| {
+        window.activate_window();
+        view.update(cx, |this, cx| this.open_thread(parent.clone(), window, cx));
+    });
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+        assert!(matches!(timeline.rows[0], Row::Parent(_)));
+        assert!(matches!(timeline.rows[1], Row::Message(..)));
+    });
+    let position = rt.store().read_position(Scope::Thread {
+        thread_id: &thread_id,
+    });
+    assert_ne!(
+        position.unwrap().as_deref(),
+        Some(parent.message_id.as_str())
+    );
+}
+
+#[gpui_kit::test]
+fn copying_shows_a_check_for_a_moment(cx: &mut TestAppContext) {
+    let rt = runtime();
+    rt.store().create_channel("c", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+    view.update(cx, |this, cx| {
+        this.copy("first".to_owned(), "本文".to_owned(), cx);
+    });
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.copied.as_deref(), Some("first"))
+    });
+    let clipboard = cx.update(|_, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+    assert_eq!(clipboard.as_deref(), Some("本文"));
+
+    // A second copy restarts the time rather than ending with the first one's timer.
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(1000));
+    view.update(cx, |this, cx| {
+        this.copy("second".to_owned(), "別".to_owned(), cx);
+    });
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(1000));
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.copied.as_deref(), Some("second"))
+    });
+    cx.executor()
+        .advance_clock(std::time::Duration::from_millis(600));
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.copied.is_none()));
 }
