@@ -1,11 +1,11 @@
-# Braydr — 設計
+# Braydr — 製品仕様
 
 コーディングエージェントとのやり取りを、Slack 風のタイムライン＋スレッドで行う。
 エージェントの実行基盤は自作せず、herdr-core に任せる。
 
 - 前提: 1 ユーザー / ローカル / 認証なし
 - このドキュメントでは技術選定をしない
-- 機能、条件、データ、API を扱う。見た目と文言は `design-language.md` に書く
+- 機能、条件、データ、API を扱う。見た目と文言は `design-system.md`、実装の方針は `architecture.md` に書く
 - 「投稿（post）」はタイムライン上の 1 件の書き込み、「メッセージ（message）」は
   保存された発言を指す。タイムラインの読み書きのツール名は `post`、
   データと返り値は `message` を使う
@@ -29,7 +29,7 @@
 
 - 1 ユーザー、1 マシン、ローカル利用。認証・共有・クラウドは対象外。
 - 1 チャンネルに 1 セッション。セッションはチャンネルに紐づく。
-- チャンネルは作業ディレクトリと herdr-core のテンプレートを持つ。セッションはこの 2 つで起動する。
+- チャンネルは作業ディレクトリ、起動コマンド、プロンプトを持つ。セッションはこの 3 つで起動する。
 - アプリは herdr-core の JSON-RPC API を直接使う。
   `session_id` は `terminal.run` が返す terminal の `address`。
 - メッセージはテキスト（Markdown）。添付ファイル・編集・削除は対象外。
@@ -93,12 +93,13 @@
 
 #### チャンネル作成
 
-ユーザーはチャンネル名、作業ディレクトリ、テンプレートを指定してチャンネルを作る。
+ユーザーはチャンネル名、作業ディレクトリ、起動コマンド、プロンプトを指定してチャンネルを作る。
 
 - 名前は 1〜64 文字。前後の空白を除き、改行・制御文字は不可。空の間は作成できない。
 - 確定は明示的な操作で行う。IME の確定と衝突するので、Enter では作成しない。
-- テンプレートの選択肢は herdr-core の `templates.list` で取得する。`error` があるものは選べない。
-- テンプレートの既定値はアプリの設定で持つ。
+- 起動コマンドとプロンプトは自由入力とする。ハーネスとモデルの選択肢は持たない。
+- 起動コマンドとプロンプトの既定値はアプリの設定で持つ（4.9）。
+- プロンプトの `{channel_id}` は起動時にチャンネルの ID に置き換える。
 - 作成するとセッションを起動する（8.1）。**エージェントに投稿させない。** メインのタイムラインは
   空のままにする。準備完了の挨拶も、システムメッセージも作らない。
 - 起動に失敗した場合もチャンネルは残し、再試行できるようにする。投稿は保存できるが、通知は届かない。
@@ -121,11 +122,12 @@
 
 #### 新しいセッションの開始
 
-herdr-core にはセッションの再開機能がない。復帰は新しいセッションの開始で行う。手順は 8.3。
+herdr-core にはセッションの再開機能がない。復帰は新しいセッションの開始で行う。手順は 8.2。
 
 - 開始するときは常にユーザーの確認を取る。エージェントの作業コンテキストが引き継がれないことを伝え、
   生きているセッションなら進行中の作業が中断されることも伝える。
-- 作業ディレクトリとテンプレートは現在の値を初期値にし、変更できる。
+- 作業ディレクトリ、起動コマンド、プロンプトは、チャンネルに保存された値を初期値にする。
+  変更して開始すると、その値をチャンネルに保存する。
 - チャンネルと履歴は残す。メッセージも既読位置も変更しない。
 - 異常終了時も同じ操作で復帰する。
 
@@ -239,7 +241,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 - チャンネル一覧は最終投稿が新しい順。
 - 未解決スレッド数は 0 件なら示さない。
-- チャンネル名のメニューは、名前の変更、テンプレート名、新しいセッションの開始を持つ。
+- チャンネル名のメニューは、名前の変更、起動コマンド、新しいセッションの開始を持つ。
   停止中は終了理由（`reason` / `exit_code`）も示す。
 - チャンネル作成直後は空のメインのタイムラインを表示する。挨拶は出さない。
 - セッションが停止している間は、その旨を投稿欄の近くで示し、新しいセッションを開始できるようにする。
@@ -288,6 +290,12 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - 通知の権限がない場合は通知しない。未読の表示は変わらない。
 - アプリが起動している間だけ通知する。
 
+### 4.9 設定
+
+- 起動コマンドとプロンプトの既定値を設定できる。変更は以降のチャンネル作成の初期値に使い、既存の
+  チャンネルの値は変えない。
+- 督促の間隔を設定できる（10.2）。
+
 ---
 
 ## 5. データモデル
@@ -302,7 +310,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `name` | ユーザーが設定するチャンネル名。1〜64 文字、前後の空白を除く、改行・制御文字不可。文字種の制限なし |
 | `session_id` | 現在の herdr-core terminal の `address`（例: `t7`）。未起動なら null |
 | `cwd` | セッションの作業ディレクトリ |
-| `template` | セッションの起動に使う herdr-core のテンプレート名 |
+| `command` | セッションの起動コマンド。シェルの 1 行 |
+| `prompt` | セッションの起動プロンプト。`{channel_id}` は置き換える前の形で保存する |
 | `created_at` | 作成時刻 |
 
 補足:
@@ -681,7 +690,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `awaiting` は未解決なら `agent` か `user`、解決済みなら null。
 - カーソルは読み取り専用のスナップショットではない。処理しながら次ページへ進むと、
   更新された項目が移動して取りこぼすことがある。キューとして使うときは、
-  先頭ページを処理してから引き直す（9.3）。
+  先頭ページを処理してから引き直す（9 章）。
 
 #### `braydr_message_search(channel, query, cursor?, limit=20)`
 
@@ -918,7 +927,6 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 | 用途 | メソッド |
 | --- | --- |
-| テンプレート一覧 | `templates.list` |
 | セッション起動 | `terminal.run` |
 | 通知の配送 | `terminal.send` |
 | セッション停止 | `terminal.kill` |
@@ -1026,10 +1034,10 @@ parent_message_id: 0190d3f4-4567-7def-9012-3456789abcde
 
 - `terminal.send` が一時的なエラー（接続断など）なら、バックオフして再送する。
 - `not_found` / `finished` / `unavailable` ならセッションは停止している。
-  送らずに `stopped` にし、投稿は DB に残す。新しいセッションの開始時に `braydr-catchup` が回収する。
+  送らずに `stopped` にし、投稿は DB に残す。新しいセッションが起動時に回収する。
 - `blocked` は `force: true` で送る。それでも失敗する場合は、`terminal.get` の
   `status` が変わるのを待って再送する。
-- 停止中に溜めた通知を、再起動後にまとめて送らない。catchup と二重になるため。
+- 停止中に溜めた通知を、起動後にまとめて送らない。起動時の読み直しと二重になるため。
 - 再送しても届かない場合は UI に警告を出す。メッセージは失わない。
 - 通知の本文は切り詰めない。長い投稿はそのまま送る。
 
@@ -1039,9 +1047,7 @@ parent_message_id: 0190d3f4-4567-7def-9012-3456789abcde
 - `state` が `finished`、または `not_found` なら `stopped`。
   `finished` の `reason` / `exit_code` を UI に出す。
 - `terminal.run` の呼び出し中は `starting`。
-- `terminal.run` の `first_message` が null、または `sent` が false なら、
-  スキルのコマンドがエージェントに届いていない。起動失敗として扱い、
-  `terminal.kill` で片付ける。
+- `terminal.run` がエラーを返すか、起動直後に `finished` になったら起動失敗として扱う。
 - アプリはセッションを自動再起動しない。異常終了は `stopped` と表示し、
   ユーザーが新しいセッションを開始して復帰する。
 
@@ -1069,83 +1075,52 @@ Braydr のセッションは通常の herdr terminal なので、同じ core に
 
 ### 8.1 API 呼び出し
 
-`terminal.run` で起動する。`argv[0]` はチャンネルのテンプレート名、残りは最初の
-メッセージ（スキルのコマンド）。`cwd` はチャンネルの作業ディレクトリ。
-`wait: false` でバックグラウンド起動する。
-
-新規チャンネル:
+`terminal.run` の `line` で起動する。`line` は起動コマンドの後ろに、シェル用に引用したプロンプトを
+付けたもの。`cwd` はチャンネルの作業ディレクトリ。`wait: false` でバックグラウンド起動する。
+テンプレートは使わない。
 
 ```json
 {"jsonrpc":"2.0","id":1,"method":"terminal.run","params":{
-  "argv":["claude","/braydr-start 0190a3c4-1234-7abc-8def-0123456789ab"],
+  "line":"claude --model opus '/braydr 0190a3c4-1234-7abc-8def-0123456789ab'",
   "cwd":"/Users/me/code/braydr",
+  "env":{"BRAYDR_CHANNEL_ID":"0190a3c4-1234-7abc-8def-0123456789ab"},
   "labels":{"braydr":"1","channel":"0190a3c4-1234-7abc-8def-0123456789ab"},
   "wait":false
 }}
 ```
 
-履歴がある場合:
-
-```json
-{"jsonrpc":"2.0","id":2,"method":"terminal.run","params":{
-  "argv":["claude","/braydr-catchup 0190e5f6-5678-7ef0-8123-456789abcdef"],
-  "cwd":"/Users/me/code/braydr",
-  "labels":{"braydr":"1","channel":"0190e5f6-5678-7ef0-8123-456789abcdef"},
-  "wait":false
-}}
-```
-
-- `terminal.run` は起動し、最初のメッセージを送った（または送らなかった）時点で返る。
+- 新規チャンネルの作成では、`channel_id`（UUIDv7）を生成してチャンネルを作ってから（`session_id` は null）
+  起動する。
 - 返り値の `address` を `session_id` に保存する。
-- `first_message` が null、または `sent` が false なら起動失敗。`reason` を UI に出し、
-  `terminal.kill` で片付ける。
+- `spawn_failed` / `config` / `unavailable` などのエラーと、起動直後の `finished` は起動失敗として
+  UI に示す。コマンドが見つからない場合もここに含まれる。
 - `terminal.run` で `name` は指定しない。core が割り当てる `address` を
   `session_id` にし、`labels.channel` でチャンネルと照合する。
-- `invalid_template` / `spawn_failed` / `config` / `unavailable` も起動失敗として
-  UI にエラーを出す。
-- 新規チャンネルの作成では、`channel_id`（UUIDv7）を生成してチャンネルを作ってから（`session_id` は null）
-  起動する。`first_message` が null でなく、`sent` が true なら `address` を `session_id` に保存する。
-- 履歴が空なら `/braydr-start`、履歴があれば `/braydr-catchup`。
-- 履歴の自動注入はしない。セッションは空の文脈で始まる。
-- チャンネルはコマンド引数で渡す。`/braydr-start` / `/braydr-catchup` の引数は
-  `channel_id`（UUIDv7）。
+- 起動コマンドの初期の既定値は `claude`、プロンプトの初期の既定値は `/braydr {channel_id}`。
+- 履歴の自動注入はしない。セッションは空の文脈で始まる。必要な履歴はエージェントが読む。
 - `channel_id` は `labels.channel` に入れる。Braydr は terminal 名を使わない。
 - `keep` は使わない。失われたプログラムをシェルに置き換えるだけで、エージェントは戻らないため。
 
-`templates.list` は `name` / `description` / `command` / `error` を返す。`name` を UI の選択肢と
-`argv[0]` に使う。
-
-### 8.2 起動の使い分け
-
-- チャンネル作成直後: `braydr-start`
-- 履歴がある場合の新しいセッション: `braydr-catchup`
-- 履歴が無い場合の新しいセッション・起動失敗の再試行: `braydr-start`
-- 履歴がある場合の起動失敗の再試行: `braydr-catchup`
-
-つまり、履歴が空なら start、履歴があれば catchup。これで、起動失敗中に投稿された
-メッセージも取りこぼさない。
-
-### 8.3 新しいセッションの開始
+### 8.2 新しいセッションの開始
 
 ユーザーが確定したら（4.1）、次の順に行う。
 
 1. `terminal.kill` で既存セッションを停止する。`session_id` が null なら停止は不要。
    `not_found` は停止済みとして続行する。返り値の `state` が `live` のまま、または
    その他のエラーなら中止する。
-2. `session_id` を null にし、選ばれた作業ディレクトリとテンプレートをチャンネルに保存する。
-3. 履歴が空なら `braydr-start`、履歴があれば `braydr-catchup` で `terminal.run` する。
-4. `first_message` が null でなく、`sent` が true なら新しい `address` を `session_id` に保存する。
-   それ以外は起動失敗として扱い、`terminal.kill` で片付ける。
+2. `session_id` を null にし、指定された作業ディレクトリ、起動コマンド、プロンプトをチャンネルに保存する。
+3. 保存した値で `terminal.run` する（8.1）。
+4. 新しい `address` を `session_id` に保存する。起動に失敗したら 8.1 のとおり UI に示す。
 
 - 古い terminal は finished として残る。新しい terminal は別の `address` になる。
   不要なら `terminal.rm` で消す。
-- 新しいセッションは、スキル経由で必要な履歴を読む。アプリは渡さない。
+- 新しいセッションは、必要な履歴を自分で読む。アプリは渡さない。
 
-### 8.4 異常終了
+### 8.3 異常終了
 
 - アプリは `terminal.get` とイベント購読でセッションの生死を監視する。
 - `finished` / `not_found` / `lost` なら `stopped` と表示する。自動再起動はしない。
-- ユーザーが新しいセッションを開始したら、8.3 と同じ手順で復帰する。
+- ユーザーが新しいセッションを開始したら、8.2 と同じ手順で復帰する。
 
 ---
 
@@ -1153,14 +1128,19 @@ Braydr のセッションは通常の herdr terminal なので、同じ core に
 
 スキルはエージェント起動時の指示書であり、常駐プロセスではない。
 
-### 9.1 `braydr`
+スキルはエージェント向けの指示書であり、常駐プロセスではない。スキルは 1 つにまとめる。
+新規チャンネルでも既存のチャンネルでも、起動時に状態を読んで行動を決める。履歴が 0 件のまま
+新しいセッションを開始する場合もあるので、アプリは起動時に区別しない。
 
-通常運用の規範。次の内容を渡す。
+スキルと MCP の設定方法はハーネスごとに異なるので、ユーザーが設定する。アプリは関与せず、
+手順は README に書く。
+
+### 9.1 `braydr`
 
 ```markdown
 ---
 name: braydr
-description: Operate one Braydr channel. Use for any Braydr post, thread, resolution, or catch-up work.
+description: Operate one Braydr channel. Use at the start of a Braydr session, with the channel id as the argument, and for any Braydr post, thread, or resolution work.
 ---
 
 # Braydr
@@ -1180,6 +1160,35 @@ Notifications also carry `channel_name`; it is a label, not a tool argument.
 - "Awaiting the user" means the thread is unresolved and the last post is from
   you. Do not resolve it while you are waiting for an answer.
 - Unread is a user-only concept. Do not reason about it.
+
+## When the session starts
+
+The argument is the channel id. This session may be the first for this channel,
+or it may replace an earlier one. Do not assume which: read the state.
+
+1. Call `braydr_channel_get`.
+2. If the main timeline is empty and no threads exist, do not post. Wait for the
+   first `[braydr] new post` or `[braydr] new thread` notification.
+3. Otherwise catch up:
+   - Read the first page of `braydr_thread_list(filter="unresolved", limit=20)`.
+     This is orientation; do not try to read every page.
+   - Read the first page of `braydr_thread_list(filter="awaiting_agent",
+     limit=20)`. These are the threads waiting on you.
+   - Read the latest 50 main-timeline posts with
+     `braydr_channel_list_posts(limit=50)`.
+   - For each awaiting thread: read `braydr_thread_list_posts`, do the work, post
+     one result, and resolve if finished. Every item must get a post; if you
+     cannot finish, post the blocker or one focused question.
+   - When the page is done, query `awaiting_agent` again from the first page. Do
+     not advance a cursor while resolving threads: the order changes. Repeat
+     until the queue is empty.
+   - If the newest main post is from the user and has no `child_thread_id`,
+     handle it: reply in main or create a thread on it.
+   - Do not post a summary of what you read. Post only results and questions.
+
+If a listed thread was resolved by the user while you were reading, re-read it
+before posting. If an awaiting thread has no reply from you yet, do not resolve
+it without posting.
 
 ## When a notification arrives
 
@@ -1259,70 +1268,6 @@ Prefer `awaiting_agent` over scanning all unresolved threads when you need your
 queue.
 ```
 
-### 9.2 `braydr-start`
-
-新規チャンネル用。投稿しない。
-
-```markdown
----
-name: braydr-start
-description: Start a new Braydr channel session. Use only when the channel was just created and has no history.
----
-
-# Braydr start
-
-Read the `braydr` skill first.
-
-This channel is new: the main timeline is empty and no threads exist.
-
-1. Do not post anything.
-2. Do not create a thread.
-3. Wait for the first `[braydr] new post` or `[braydr] new thread` notification.
-4. Then follow `braydr`.
-
-You may call `braydr_channel_get` to confirm the channel is empty.
-If it already has posts or threads, do not post. Invoke the `braydr-catchup`
-skill instead.
-```
-
-### 9.3 `braydr-catchup`
-
-既存チャンネル用。未解決、未返信、メインの直近 50 件の順に読み、未返信から再開する。
-読んだ内容は投稿しない。
-
-```markdown
----
-name: braydr-catchup
-description: Resume an existing Braydr channel after a restart. Use when the channel has history.
----
-
-# Braydr catch-up
-
-Read the `braydr` skill first.
-
-1. Read the first page of `braydr_thread_list(filter="unresolved", limit=20)`.
-   This is orientation; do not try to read every page.
-2. Read the first page of `braydr_thread_list(filter="awaiting_agent",
-   limit=20)`. These are the threads waiting on you.
-3. Read the latest 50 main-timeline posts with
-   `braydr_channel_list_posts(limit=50)`.
-4. Work the queue:
-   - For each thread on the awaiting page: read
-     `braydr_thread_list_posts`, do the work, post one result, and resolve if
-     finished. Every item must get a post; if you cannot finish, post the
-     blocker or one focused question.
-   - When the page is done, query `awaiting_agent` again from the first page.
-     Do not advance a cursor while resolving threads: the order changes.
-   - Repeat until the queue is empty.
-5. If the newest main post is from the user and has no `child_thread_id`,
-   handle it: reply in main or create a thread on it.
-6. Do not post a summary of what you read. Post only results and questions.
-
-If a listed thread was resolved by the user while you were reading, re-read it
-before posting. If an awaiting thread has no reply from you yet, do not resolve
-it without posting.
-```
-
 ---
 
 ## 10. ループ
@@ -1391,7 +1336,7 @@ more: false
 ### 10.5 補足
 
 - ループはアプリが起動している間だけ動く。アプリ終了中は督促しない。
-- アプリ起動時にもスキャンする。停止中に溜まった未返信は、新しいセッションの catchup と
+- アプリ起動時にもスキャンする。停止中に溜まった未返信は、新しいセッションの起動時の読み直しと
   ループの両方から拾われうる。二重投稿は `after` で防ぐ。
 - ユーザーがスレッドを解決したら、そのスレッドへの督促は止まる。
 - ユーザーが未解決に戻しただけでは、それ自体を通知しない。ただし最後がユーザーなら
@@ -1422,8 +1367,6 @@ more: false
 
 ## 12. 未決事項
 
-- Claude 以外のテンプレートでの起動。最初のメッセージの `/braydr-start` はスキル呼び出しに依存する。
-  他のエージェントでスキルと `braydr_*` ツールが同じように使えるかは未確認。
-- `templates.list` の絞り込み。エージェント以外のテンプレートも返る可能性がある。
+- プロンプトを最後の引数で受け取れないハーネスの扱い。
 - 作業ディレクトリを変えたときの履歴の扱い。前のディレクトリのパスを含む履歴を新しいセッションが読む。
 - 検索の日本語対応の方式。
