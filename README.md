@@ -3,6 +3,15 @@
 コーディングエージェントとのやり取りを、Slack 風のタイムラインとスレッドで行う macOS アプリ。
 エージェントの実行は [herdr-core](https://github.com/ogulcancelik/herdr) に任せる。
 
+![チャンネルのタイムラインと右シートのスレッド](docs/images/thread.png)
+
+<table>
+  <tr>
+    <td><img src="docs/images/search.png" alt="チャンネル内検索"></td>
+    <td><img src="docs/images/unresolved.png" alt="未解決スレッドの一覧"></td>
+  </tr>
+</table>
+
 ## 文書
 
 - [`docs/product-spec.md`](docs/product-spec.md): 機能、条件、データ、API
@@ -52,5 +61,8 @@ BRAYDR_DATA_DIR=/tmp/b BRAYDR_SCREENSHOT=/tmp/shot.png BRAYDR_SCREENSHOT_STATE=s
   cargo run -p braydr-app --features screenshot
 ```
 
+この画像に信号機は写らない。写すには、`BRAYDR_SCREENSHOT_WAIT` で秒数を延ばして開いている間に、
+`screencapture -l <ウィンドウ ID>` で撮る。
+
 `BRAYDR_SCREENSHOT_STATE` は `thread` `unresolved` `search` `menu` `rename` `session` `create`
-`collapsed` `settings` のどれか。
+`collapsed` `settings` `draft` `copied` `flash` `resize` のどれか。

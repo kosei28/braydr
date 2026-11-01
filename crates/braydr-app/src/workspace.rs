@@ -1537,7 +1537,14 @@ impl Workspace {
                     _ => {}
                 }
             });
-            cx.background_executor().timer(Duration::from_secs(2)).await;
+            // Longer when something outside the app, like `screencapture`, takes the picture.
+            let seconds = std::env::var("BRAYDR_SCREENSHOT_WAIT")
+                .ok()
+                .and_then(|value| value.parse().ok())
+                .unwrap_or(2);
+            cx.background_executor()
+                .timer(Duration::from_secs(seconds))
+                .await;
             let _ = cx.update(|window, cx| {
                 match window.render_to_image() {
                     Ok(image) => {
