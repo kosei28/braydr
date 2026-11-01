@@ -53,7 +53,7 @@ pub struct ChannelRow {
     blocked: bool,
     pub start_failed: bool,
     unresolved: i64,
-    unread: bool,
+    main_unread: bool,
     unresolved_unread: bool,
 }
 
@@ -210,11 +210,10 @@ impl Workspace {
                 let id = channel.channel_id.clone();
                 let store = self.rt.store();
                 let unresolved = store.unresolved_count(&id).unwrap_or(0);
-                let unread = store
+                let main_unread = store
                     .has_unread(braydr_core::Scope::Main { channel_id: &id })
-                    .unwrap_or(false)
-                    || store.has_unread_thread(&id, false).unwrap_or(false);
-                let unresolved_unread = store.has_unread_thread(&id, true).unwrap_or(false);
+                    .unwrap_or(false);
+                let unresolved_unread = store.has_unread_unresolved_thread(&id).unwrap_or(false);
                 drop(store);
                 let state = self.rt.cached_state(&id);
                 ChannelRow {
@@ -224,7 +223,7 @@ impl Workspace {
                     state,
                     channel,
                     unresolved,
-                    unread,
+                    main_unread,
                     unresolved_unread,
                 }
             })
@@ -659,7 +658,7 @@ impl Workspace {
             let glyph = div().size(px(16.)).flex().items_center().justify_center();
             let glyph = if row.stopped || row.blocked {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::warn()))
-            } else if row.unread {
+            } else if row.main_unread {
                 glyph.child(div().size(px(7.)).rounded_full().bg(theme::unread()))
             } else {
                 glyph.child(div().size(px(5.)).rounded_full().bg(theme::ink4()))

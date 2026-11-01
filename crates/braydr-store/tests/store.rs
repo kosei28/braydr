@@ -312,28 +312,24 @@ fn unread_axes_are_independent() {
 }
 
 #[test]
-fn unread_threads_count_for_the_channel_until_read() {
+fn only_unresolved_threads_count_as_unread_unresolved() {
     let (mut s, ch) = setup();
     let (_, thread) = threaded(&mut s, &ch);
     let t = thread.thread_id.as_str();
     assert!(
-        !s.has_unread_thread(&ch, false).unwrap(),
+        !s.has_unread_unresolved_thread(&ch).unwrap(),
         "own reply is read"
     );
     let reply = s
         .agent_post_thread(&ch, t, "返答", Some(&thread.last_message_id))
         .unwrap();
-    assert!(s.has_unread_thread(&ch, false).unwrap());
-    assert!(s.has_unread_thread(&ch, true).unwrap());
+    assert!(s.has_unread_unresolved_thread(&ch).unwrap());
 
     s.agent_resolve(&ch, t, &reply.message_id).unwrap();
+    assert!(!s.has_unread_unresolved_thread(&ch).unwrap());
     assert!(
-        s.has_unread_thread(&ch, false).unwrap(),
-        "resolved still counts"
-    );
-    assert!(
-        !s.has_unread_thread(&ch, true).unwrap(),
-        "but not as unresolved"
+        s.has_unread(Scope::Thread { thread_id: t }).unwrap(),
+        "still unread"
     );
 }
 

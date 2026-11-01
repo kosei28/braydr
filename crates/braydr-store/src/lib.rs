@@ -925,8 +925,8 @@ impl Store {
         Ok(self.first_unread(scope)?.is_some())
     }
 
-    /// Whether any thread in the channel has unread replies: any thread, or only unresolved ones.
-    pub fn has_unread_thread(&self, channel_id: &str, unresolved_only: bool) -> Result<bool> {
+    /// Whether any unresolved thread in the channel has unread replies.
+    pub fn has_unread_unresolved_thread(&self, channel_id: &str) -> Result<bool> {
         self.conn
             .query_row(
                 "SELECT EXISTS (
@@ -935,10 +935,10 @@ impl Store {
                     LEFT JOIN read_positions r
                         ON r.scope_type = 'thread' AND r.scope_id = t.thread_id
                     WHERE t.channel_id = ?1
-                        AND (NOT ?2 OR t.resolved_at IS NULL)
+                        AND t.resolved_at IS NULL
                         AND (r.last_read_message_id IS NULL OR m.message_id > r.last_read_message_id)
                 )",
-                params![channel_id, unresolved_only],
+                [channel_id],
                 |row| row.get(0),
             )
             .db()
