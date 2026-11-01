@@ -295,6 +295,36 @@ fn a_notification_for_a_deleted_channel_opens_nothing(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn the_unread_panel_lists_other_channels_and_closes_on_escape(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let other = rt
+        .store()
+        .create_channel("別", &launch())
+        .unwrap()
+        .channel_id;
+    rt.store().agent_post_main(&other, "報告", None).unwrap();
+    rt.store().create_channel("今", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+
+    view.update_in(cx, |this, window, cx| this.open_unread(window, cx));
+    view.read_with(cx, |this, _| {
+        assert!(matches!(this.overlay, Some(Overlay::Unread(_))));
+    });
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(this.overlay.is_none()));
+
+    view.update_in(cx, |this, window, cx| {
+        this.open_unread(window, cx);
+        this.overlay = None;
+        this.open_tag(&format!("main:{other}"), window, cx);
+    });
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.selected.as_deref(), Some(other.as_str()));
+    });
+}
+
+#[gpui_kit::test]
 fn with_no_channels_the_creation_form_opens_and_stays(cx: &mut TestAppContext) {
     let rt = runtime();
     let (view, cx) = open(cx, &rt);

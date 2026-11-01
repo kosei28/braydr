@@ -3,6 +3,7 @@
 use braydr_core::text::excerpt;
 use braydr_core::{LaunchConfig, Message, Scope, Thread, ThreadFilter, validate};
 use braydr_runtime::SessionState;
+use braydr_store::UnreadItem;
 use gpui_kit::component::input::{Input, InputEvent, InputState, TextareaState};
 use gpui_kit::{
     AnyElement, AppContext as _, Context, Div, Entity, FontWeight, HighlightStyle,
@@ -20,6 +21,11 @@ const PAGE: u32 = 20;
 pub struct UnresolvedPanel {
     threads: Vec<(Thread, bool)>,
     more: Option<String>,
+    scroll: ScrollHandle,
+}
+
+pub struct UnreadPanel {
+    items: Vec<UnreadItem>,
     scroll: ScrollHandle,
 }
 
@@ -135,6 +141,7 @@ pub struct SessionDialog {
 pub enum Overlay {
     Menu,
     Unresolved(UnresolvedPanel),
+    Unread(UnreadPanel),
     Search(SearchPanel),
     Rename(RenameDialog),
     Delete(DeleteDialog),
@@ -185,6 +192,15 @@ impl Workspace {
     pub fn open_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.release_focus(window, cx);
         self.overlay = Some(Overlay::Menu);
+        cx.notify();
+    }
+
+    pub fn open_unread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.release_focus(window, cx);
+        self.overlay = Some(Overlay::Unread(UnreadPanel {
+            items: self.rt.store().unread_items().unwrap_or_default(),
+            scroll: ScrollHandle::new(),
+        }));
         cx.notify();
     }
 
@@ -320,6 +336,8 @@ impl Workspace {
             let count = panel.threads.len().max(PAGE as usize);
             self.load_unresolved(&mut panel, count);
             self.overlay = Some(Overlay::Unresolved(panel));
+        } else if let Some(Overlay::Unread(panel)) = &mut self.overlay {
+            panel.items = self.rt.store().unread_items().unwrap_or_default();
         } else if matches!(self.overlay, Some(Overlay::Search(_))) {
             self.run_search(cx);
         }
@@ -491,6 +509,7 @@ impl Workspace {
         let content = match overlay {
             Overlay::Menu => self.render_menu(cx),
             Overlay::Unresolved(panel) => self.render_unresolved(panel, cx),
+            Overlay::Unread(panel) => self.render_unread(panel, cx),
             Overlay::Search(panel) => self.render_search(panel, cx),
             Overlay::Rename(dialog) => self.render_rename(dialog, cx),
             Overlay::Delete(dialog) => self.render_delete(dialog, cx),
@@ -695,6 +714,94 @@ impl Workspace {
                     .child(
                         div()
                             .id("unresolved-list")
+                            .max_h(px(560.))
+                            .overflow_y_scroll()
+                            .track_scroll(&panel.scroll)
+                            .child(rows),
+                    )
+                    .child(
+                        gpui_kit::base::Scrollbar::vertical(&panel.scroll)
+                            .mode(gpui_kit::base::ScrollbarMode::Always),
+                    ),
+            )
+            .into_any_element()
+    }
+
+    fn render_unread(&self, panel: &UnreadPanel, cx: &mut Context<Self>) -> AnyElement {
+        let mut rows = div().flex().flex_col().p(px(6.));
+        for (ix, item) in panel.items.iter().enumerate() {
+            let tag = match &item.thread {
+                Some(thread) => format!("thread:{}", thread.thread_id),
+                None => format!("main:{}", item.channel_id),
+            };
+            rows = rows.child(
+                div()
+                    .id(("unread", ix))
+                    .px(px(10.))
+                    .py(px(8.))
+                    .flex()
+                    .flex_col()
+                    .gap(px(4.))
+                    .rounded(px(8.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(theme::tint()))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.overlay = None;
+                        this.open_tag(&tag, window, cx);
+                        this.focus_composer(window, cx);
+                    }))
+                    .child(
+                        div()
+                            .text_size(px(13.))
+                            .text_color(theme::ink())
+                            .line_clamp(2)
+                            .child(braydr_core::text::head(&item.text, 200)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(px(6.))
+                            .text_size(px(12.))
+                            .text_color(theme::ink3())
+                            .child(div().flex_none().child(item.channel_name.clone()))
+                            .children(item.thread.as_ref().map(|thread| {
+                                div().min_w_0().truncate().child(braydr_core::text::head(
+                                    &thread.parent_message.text,
+                                    200,
+                                ))
+                            }))
+                            .child(div().flex_none().child(ui::when(item.at))),
+                    ),
+            );
+        }
+        if panel.items.is_empty() {
+            rows = rows.child(
+                div()
+                    .px(px(10.))
+                    .py(px(8.))
+                    .text_size(px(13.))
+                    .text_color(theme::ink3())
+                    .child("未読はありません"),
+            );
+        }
+        // Beside the sidebar, level with the row that opened it.
+        ui::floating(14.)
+            .absolute()
+            .top(px(60.))
+            .left(px(self.sheet_left() + 8.))
+            .w(px(408.))
+            .min_h(px(44.))
+            .max_h(px(560.))
+            .overflow_hidden()
+            .occlude()
+            .child(
+                div()
+                    .relative()
+                    .max_h(px(560.))
+                    .child(
+                        div()
+                            .id("unread-list")
                             .max_h(px(560.))
                             .overflow_y_scroll()
                             .track_scroll(&panel.scroll)

@@ -129,6 +129,7 @@ impl AssetSource for Assets {
             "icons/corner-up-left.svg" => {
                 Some(include_bytes!("../assets/icons/corner-up-left.svg"))
             }
+            "icons/inbox.svg" => Some(include_bytes!("../assets/icons/inbox.svg")),
             "icons/loader-circle.svg" => Some(include_bytes!("../assets/icons/loader-circle.svg")),
             "icons/pencil.svg" => Some(include_bytes!("../assets/icons/pencil.svg")),
             "icons/rotate-ccw.svg" => Some(include_bytes!("../assets/icons/rotate-ccw.svg")),

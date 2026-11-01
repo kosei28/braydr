@@ -96,6 +96,7 @@ pub struct Workspace {
     copy_generation: u64,
     announced_through: Option<String>,
     pub notified: HashSet<String>,
+    any_unread: bool,
     focus: FocusHandle,
 }
 
@@ -125,6 +126,7 @@ impl Workspace {
             copy_generation: 0,
             announced_through,
             notified: HashSet::new(),
+            any_unread: false,
             focus: cx.focus_handle(),
         };
         this.reload_channels();
@@ -228,6 +230,8 @@ impl Workspace {
                 }
             })
             .collect();
+        self.any_unread = self.channels.iter().any(|row| row.main_unread)
+            || self.rt.store().has_unread_thread().unwrap_or(false);
     }
 
     pub fn reload(&mut self, cx: &mut Context<Self>) {
@@ -510,7 +514,7 @@ impl Workspace {
         window.focus(&self.focus, cx);
     }
 
-    fn focus_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn focus_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(pane) = &self.pane {
             let input = pane.input.clone();
             input.update(cx, |state, cx| state.focus(window, cx));
@@ -746,6 +750,37 @@ impl Workspace {
                     .justify_end()
                     .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
                     .child(self.sidebar_toggle(cx)),
+            )
+            .child(
+                div()
+                    .id("open-unread")
+                    .h(px(30.))
+                    .mb(px(8.))
+                    .px(px(8.))
+                    .gap(px(8.))
+                    .flex()
+                    .flex_none()
+                    .items_center()
+                    .rounded(px(7.))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(theme::tint()))
+                    .text_size(px(13.))
+                    .text_color(theme::ink())
+                    .on_click(cx.listener(|this, _, window, cx| this.open_unread(window, cx)))
+                    .child(
+                        div()
+                            .size(px(16.))
+                            .flex()
+                            .flex_none()
+                            .items_center()
+                            .justify_center()
+                            .child(ui::icon("inbox", 14., theme::ink2())),
+                    )
+                    .child(div().flex_1().child("未読"))
+                    .children(
+                        self.any_unread
+                            .then(|| div().size(px(7.)).rounded_full().bg(theme::unread())),
+                    ),
             )
             .child(
                 div()
@@ -1584,6 +1619,7 @@ impl Workspace {
                     }
                     "resize" => window.resize(gpui_kit::size(px(1100.), px(750.))),
                     "unresolved" => this.open_unresolved(window, cx),
+                    "unread" => this.open_unread(window, cx),
                     "menu" => this.open_menu(window, cx),
                     "rename" => this.open_rename(window, cx),
                     "session" => this.open_session_dialog(window, cx),

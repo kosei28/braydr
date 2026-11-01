@@ -174,6 +174,16 @@ fn scope_key(scope: Scope<'_>) -> (&'static str, &str) {
     }
 }
 
+/// One timeline with something unread: a channel's main timeline, or a thread.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnreadItem {
+    pub channel_id: String,
+    pub channel_name: String,
+    pub thread: Option<Thread>,
+    pub text: String,
+    pub at: i64,
+}
+
 impl Store {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::setup(Connection::open(path).db()?, Box::new(wall_clock))
@@ -977,6 +987,75 @@ impl Store {
 
     pub fn has_unread(&self, scope: Scope<'_>) -> Result<bool> {
         Ok(self.first_unread(scope)?.is_some())
+    }
+
+    /// The threads with unread replies, resolved or not, across all channels.
+    fn unread_thread_ids(&self) -> Result<Vec<(String, String)>> {
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT t.channel_id, t.thread_id FROM threads t
+                 LEFT JOIN read_positions r
+                    ON r.scope_type = 'thread' AND r.scope_id = t.thread_id
+                 WHERE (SELECT max(m.message_id) FROM messages m WHERE m.thread_id = t.thread_id)
+                    > coalesce(r.last_read_message_id, '')",
+            )
+            .db()?;
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .db()?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .db()
+    }
+
+    pub fn has_unread_thread(&self) -> Result<bool> {
+        Ok(!self.unread_thread_ids()?.is_empty())
+    }
+
+    /// Everything unread across all channels, showing the first unread message of each timeline.
+    /// The newest of those comes first.
+    pub fn unread_items(&self) -> Result<Vec<UnreadItem>> {
+        let channels = self.channels()?;
+        let name_of = |channel_id: &str| {
+            channels
+                .iter()
+                .find(|channel| channel.channel_id == channel_id)
+                .map(|channel| channel.name.clone())
+                .unwrap_or_default()
+        };
+        let mut items = Vec::new();
+        for channel in &channels {
+            let id = channel.channel_id.as_str();
+            let Some(first) = self.first_unread(Scope::Main { channel_id: id })? else {
+                continue;
+            };
+            let message = self.message(id, &first)?;
+            items.push(UnreadItem {
+                channel_id: id.to_owned(),
+                channel_name: channel.name.clone(),
+                thread: None,
+                text: message.text,
+                at: message.created_at,
+            });
+        }
+        for (channel_id, thread_id) in self.unread_thread_ids()? {
+            let Some(first) = self.first_unread(Scope::Thread {
+                thread_id: &thread_id,
+            })?
+            else {
+                continue;
+            };
+            let message = self.message(&channel_id, &first)?;
+            items.push(UnreadItem {
+                channel_name: name_of(&channel_id),
+                thread: Some(self.thread(&channel_id, &thread_id)?),
+                channel_id,
+                text: message.text,
+                at: message.created_at,
+            });
+        }
+        items.sort_by_key(|item| std::cmp::Reverse(item.at));
+        Ok(items)
     }
 
     /// Whether any unresolved thread in the channel has unread replies.

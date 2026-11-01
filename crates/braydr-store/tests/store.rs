@@ -373,6 +373,45 @@ fn deleting_a_channel_removes_everything_in_it_and_nothing_else() {
 }
 
 #[test]
+fn unread_items_list_main_timelines_and_threads_newest_first() {
+    let (mut s, ch) = setup();
+    assert!(s.unread_items().unwrap().is_empty());
+
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = thread.thread_id.clone();
+    assert!(s.unread_items().unwrap().is_empty(), "own posts are read");
+
+    let other = s.create_channel("別", &launch()).unwrap().channel_id;
+    let main = s.agent_post_main(&other, "報告", None).unwrap();
+    let main = s
+        .agent_post_main(&other, "続報", Some(&main.message_id))
+        .unwrap();
+    let items = s.unread_items().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].channel_name, "別");
+    assert_eq!(items[0].text, "報告");
+    assert!(items[0].thread.is_none());
+
+    let reply = s
+        .agent_post_thread(&ch, &t, "返答", Some(&thread.last_message_id))
+        .unwrap();
+    assert!(s.has_unread_thread().unwrap());
+    s.agent_resolve(&ch, &t, &reply.message_id).unwrap();
+    let items = s.unread_items().unwrap();
+    assert_eq!(items.len(), 2, "resolved threads still count");
+    let in_thread = items.iter().find(|item| item.thread.is_some()).unwrap();
+    assert_eq!(in_thread.text, "返答");
+    assert_eq!(in_thread.thread.as_ref().unwrap().parent_message.text, "親");
+
+    s.mark_read(Scope::Main { channel_id: &other }, &main.message_id)
+        .unwrap();
+    s.mark_read(Scope::Thread { thread_id: &t }, &reply.message_id)
+        .unwrap();
+    assert!(s.unread_items().unwrap().is_empty());
+    assert!(!s.has_unread_thread().unwrap());
+}
+
+#[test]
 fn search_finds_japanese_in_main_and_threads() {
     let (mut s, ch) = setup();
     let other = s.create_channel("別", &launch()).unwrap().channel_id;
