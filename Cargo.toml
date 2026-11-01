@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["crates/*"]
+exclude = ["vendor"]
 
 [workspace.package]
 edition = "2024"
@@ -18,3 +19,6 @@ proptest = "1"
 
 [workspace.lints.clippy]
 all = "warn"
+
+[patch.crates-io]
+gpui-base = { path = "vendor/gpui-base" }
