@@ -497,13 +497,14 @@ fn search_pages_newest_first() {
 #[test]
 fn nudge_condition_for_main() {
     let (mut s, ch) = setup();
-    assert!(!s.main_needs_response(&ch).unwrap());
+    assert_eq!(s.main_awaiting_agent(&ch).unwrap(), None);
     let posted = s.user_post_main(&ch, "依頼").unwrap();
-    assert!(s.main_needs_response(&ch).unwrap());
+    assert!(s.main_awaiting_agent(&ch).unwrap().is_some());
     s.agent_create_thread(&ch, &posted.message_id, "対応", false)
         .unwrap();
-    assert!(
-        !s.main_needs_response(&ch).unwrap(),
+    assert_eq!(
+        s.main_awaiting_agent(&ch).unwrap(),
+        None,
         "a child thread counts as handled"
     );
 }
@@ -711,7 +712,6 @@ fn the_main_timeline_awaits_the_agent_when_unanswered_or_continuing() {
     let continuing = s.main_awaiting_agent(&ch).unwrap().unwrap();
     assert_eq!(continuing.last_message_id, progress.message_id);
     assert_eq!(continuing.last_author, Author::Agent);
-    assert!(s.main_needs_response(&ch).unwrap());
 
     s.agent_post_main(&ch, "完了", false, Some(&progress.message_id))
         .unwrap();
@@ -725,4 +725,64 @@ fn user_posts_never_continue() {
     assert!(!thread.agent_continues);
     let main = s.user_post_main(&ch, "x").unwrap();
     assert!(!main.agent_continues);
+}
+
+#[test]
+fn a_reopened_continuing_thread_awaits_the_agent_again() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = &thread.thread_id;
+    s.agent_post_thread(&ch, t, "途中経過", true, Some(&thread.last_message_id))
+        .unwrap();
+    s.user_resolve(&ch, t).unwrap();
+    s.user_reopen(&ch, t).unwrap();
+    let reopened = s.thread(&ch, t).unwrap();
+    assert!(reopened.agent_continues);
+    assert_eq!(reopened.awaiting, Some(Author::Agent));
+    let queue = s
+        .list_threads(&ch, ThreadFilter::AwaitingAgent, None, None)
+        .unwrap();
+    assert_eq!(queue.items[0].thread_id, *t);
+}
+
+#[test]
+fn a_finishing_thread_on_a_continuing_main_post_takes_it_off_the_queue() {
+    let (mut s, ch) = setup();
+    let asked = s.user_post_main(&ch, "依頼").unwrap();
+    let progress = s
+        .agent_post_main(&ch, "途中経過", true, Some(&asked.message_id))
+        .unwrap();
+    assert!(s.main_awaiting_agent(&ch).unwrap().is_some());
+    let (thread, _) = s
+        .agent_create_thread(&ch, &progress.message_id, "完了", false)
+        .unwrap();
+    assert_eq!(s.main_awaiting_agent(&ch).unwrap(), None);
+    assert_eq!(thread.awaiting, Some(Author::User));
+}
+
+#[test]
+fn the_user_count_leaves_out_continuing_threads() {
+    let (mut s, ch) = setup();
+    let (_, continuing) = threaded(&mut s, &ch);
+    s.agent_post_thread(
+        &ch,
+        &continuing.thread_id,
+        "途中経過",
+        true,
+        Some(&continuing.last_message_id),
+    )
+    .unwrap();
+    let (_, waiting) = threaded(&mut s, &ch);
+    s.agent_post_thread(
+        &ch,
+        &waiting.thread_id,
+        "質問",
+        false,
+        Some(&waiting.last_message_id),
+    )
+    .unwrap();
+    let summary = s.channel_summary(&ch).unwrap();
+    assert_eq!(summary.thread_count_awaiting_user, 1);
+    assert_eq!(summary.thread_count_awaiting_agent, 1);
+    assert_eq!(summary.thread_count_unresolved, 2);
 }

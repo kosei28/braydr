@@ -2,7 +2,7 @@
 
 use rusqlite::Connection;
 
-const MIGRATIONS: &[&str] = &[
+pub(crate) const MIGRATIONS: &[&str] = &[
     r#"
         CREATE TABLE channels (
             channel_id TEXT PRIMARY KEY,

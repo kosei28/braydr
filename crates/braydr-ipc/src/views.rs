@@ -1,6 +1,7 @@
 //! JSON shapes returned to agents. Times are UTC ISO 8601 with milliseconds.
 
-use braydr_core::{Author, Error, Message, Page, StateEvent, Thread};
+use braydr_core::notification::NudgeState;
+use braydr_core::{Error, Message, Page, StateEvent, Thread};
 use braydr_store::{ChannelSummary, MainAwaiting};
 use serde_json::{Value, json};
 use time::OffsetDateTime;
@@ -72,10 +73,7 @@ pub fn summary(s: &ChannelSummary, main: Option<&MainAwaiting>) -> Value {
         "thread_count_awaiting_agent": s.thread_count_awaiting_agent,
         "thread_count_awaiting_user": s.thread_count_awaiting_user,
         "main_awaiting_agent": main.map(|m| json!({
-            "state": match m.last_author {
-                Author::User => "unanswered",
-                Author::Agent => "continuing",
-            },
+            "state": NudgeState::of(m.last_author).as_str(),
             "last_message_id": m.last_message_id,
             "last_message_at": iso(m.last_message_at),
         })),
