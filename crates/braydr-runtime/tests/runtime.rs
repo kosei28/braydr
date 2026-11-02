@@ -363,22 +363,85 @@ fn nudges_wait_then_repeat_until_resolved() {
     e.rt.tick(interval).unwrap();
     let sent = nudges(&e.core);
     assert_eq!(sent.len(), 1);
-    assert!(
-        sent[0]
-            .1
-            .contains(&format!("main:\n  last_message_id: {}", parent.message_id))
-    );
+    assert!(sent[0].1.contains(&format!(
+        "main:\n  state: unanswered\n  last_message_id: {}",
+        parent.message_id
+    )));
     assert!(sent[0].1.ends_with("more: false"));
     e.clock.fetch_add(interval, Ordering::SeqCst);
     e.rt.tick(interval).unwrap();
     assert_eq!(nudges(&e.core).len(), 2);
 
     e.rt.store()
-        .agent_create_thread(&ch, &parent.message_id, "対応")
+        .agent_create_thread(&ch, &parent.message_id, "対応", false)
         .unwrap();
     e.clock.fetch_add(interval, Ordering::SeqCst);
     e.rt.tick(interval).unwrap();
     assert_eq!(nudges(&e.core).len(), 2, "a child thread counts as handled");
+}
+
+#[test]
+fn nudges_cover_work_the_agent_said_it_continues() {
+    let e = env();
+    let (channel, _) = e.rt.create_channel("開発", &launch()).unwrap();
+    let ch = channel.channel_id;
+    session_ready(&e, &ch);
+    let parent = e.rt.post_main(&ch, "依頼").unwrap();
+    wait_sent(&e.core, 1);
+    let interval = 1000;
+    let nudges = |e: &Env| -> Vec<String> {
+        e.core
+            .sent
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(_, text)| text.starts_with("[braydr] nudge"))
+            .map(|(_, text)| text.clone())
+            .collect()
+    };
+    let wait = |e: &Env| {
+        e.clock.fetch_add(interval, Ordering::SeqCst);
+        e.rt.tick(interval).unwrap();
+    };
+
+    let main =
+        e.rt.store()
+            .agent_post_main(&ch, "途中経過", true, Some(&parent.message_id))
+            .unwrap();
+    wait(&e);
+    wait(&e);
+    let sent = nudges(&e);
+    assert_eq!(sent.len(), 1);
+    assert!(sent[0].contains(&format!(
+        "main:\n  state: continuing\n  last_message_id: {}",
+        main.message_id
+    )));
+
+    let (thread, first) =
+        e.rt.store()
+            .agent_create_thread(&ch, &main.message_id, "続きはここで", true)
+            .unwrap();
+    wait(&e);
+    let sent = nudges(&e);
+    assert_eq!(sent.len(), 2);
+    assert!(sent[1].contains(&format!(
+        "- thread_id: {}\n  state: continuing",
+        thread.thread_id
+    )));
+    assert!(!sent[1].contains("main:"), "the child thread took it over");
+
+    e.rt.store()
+        .agent_post_thread(
+            &ch,
+            &thread.thread_id,
+            "完了",
+            false,
+            Some(&first.message_id),
+        )
+        .unwrap();
+    wait(&e);
+    wait(&e);
+    assert_eq!(nudges(&e).len(), 2, "a finished post leaves the queue");
 }
 
 #[test]

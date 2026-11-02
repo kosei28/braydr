@@ -82,6 +82,8 @@ const MIGRATIONS: &[&str] = &[
             WHERE ranked.channel_id = channels.channel_id
         );
         "#,
+    // Set on an agent post that says the agent is still working (`docs/product-spec.md` 6.3).
+    "ALTER TABLE messages ADD COLUMN agent_continues INTEGER NOT NULL DEFAULT 0;",
 ];
 
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -102,11 +104,10 @@ mod tests {
     #[test]
     fn existing_channels_keep_their_newest_post_order() {
         let mut conn = Connection::open_in_memory().unwrap();
-        for sql in &MIGRATIONS[..MIGRATIONS.len() - 1] {
+        for sql in &MIGRATIONS[..3] {
             conn.execute_batch(sql).unwrap();
         }
-        conn.pragma_update(None, "user_version", MIGRATIONS.len() as i64 - 1)
-            .unwrap();
+        conn.pragma_update(None, "user_version", 3).unwrap();
         conn.execute_batch(
             "INSERT INTO channels (channel_id, name, cwd, command, prompt, created_at) VALUES
                 ('1', 'posted-last', '', '', '', 0),

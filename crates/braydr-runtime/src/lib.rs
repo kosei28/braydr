@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use braydr_core::launch::{ENV_CHANNEL_ID, in_user_shell, shell_line};
-use braydr_core::notification::{self, NudgeMain, NudgeThread};
+use braydr_core::notification::{self, NudgeMain, NudgeState, NudgeThread};
 use braydr_core::schedule::NudgeTimer;
 use braydr_core::*;
 use braydr_herdr::{Activity, Core, RunSpec, Terminal};
@@ -448,7 +448,7 @@ impl<C: Core + 'static> Runtime<C> {
                 (
                     page.items,
                     page.has_more,
-                    store.main_awaiting_response(&channel.channel_id)?,
+                    store.main_awaiting_agent(&channel.channel_id)?,
                 )
             };
             let busy = matches!(
@@ -466,13 +466,15 @@ impl<C: Core + 'static> Runtime<C> {
                 .iter()
                 .map(|thread| NudgeThread {
                     thread_id: thread.thread_id.clone(),
+                    state: NudgeState::of(thread.last_author),
                     last_message_id: thread.last_message_id.clone(),
                     last_message_at: views::iso(thread.last_message_at),
                 })
                 .collect();
-            let main = main.map(|(last_message_id, at)| NudgeMain {
-                last_message_id,
-                last_message_at: views::iso(at),
+            let main = main.map(|main| NudgeMain {
+                state: NudgeState::of(main.last_author),
+                last_message_id: main.last_message_id,
+                last_message_at: views::iso(main.last_message_at),
             });
             let text = notification::nudge(&threads, main.as_ref(), more);
             let Some(address) = self.ready_address(&channel.channel_id) else {

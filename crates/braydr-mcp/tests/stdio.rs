@@ -106,7 +106,7 @@ fn forwards_tools_and_scopes_to_the_session_channel() {
     let (posted, is_error) = sidecar.tool(
         3,
         "braydr_channel_create_post",
-        json!({ "text": "こんにちは" }),
+        json!({ "text": "こんにちは", "agent_continues": false }),
     );
     assert!(!is_error, "{posted}");
     assert_eq!(posted["message"]["channel_id"], channel);
@@ -123,7 +123,11 @@ fn forwards_tools_and_scopes_to_the_session_channel() {
         .unwrap();
     assert_eq!(posts.items[0].text, "こんにちは");
 
-    let (error, is_error) = sidecar.tool(4, "braydr_channel_create_post", json!({ "text": "次" }));
+    let (error, is_error) = sidecar.tool(
+        4,
+        "braydr_channel_create_post",
+        json!({ "text": "次", "agent_continues": false }),
+    );
     assert!(is_error);
     assert_eq!(error["error"]["code"], "after_required");
 

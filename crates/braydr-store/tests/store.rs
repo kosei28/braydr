@@ -26,16 +26,19 @@ fn threaded(store: &mut Store, ch: &str) -> (String, Thread) {
 #[test]
 fn after_guards_main_posts() {
     let (mut s, ch) = setup();
-    let first = s.agent_post_main(&ch, "a", None).unwrap();
-    assert_eq!(s.agent_post_main(&ch, "b", None), Err(Error::AfterRequired));
+    let first = s.agent_post_main(&ch, "a", false, None).unwrap();
     assert_eq!(
-        s.agent_post_main(&ch, "b", Some("stale")),
+        s.agent_post_main(&ch, "b", false, None),
+        Err(Error::AfterRequired)
+    );
+    assert_eq!(
+        s.agent_post_main(&ch, "b", false, Some("stale")),
         Err(Error::StaleAfter {
             current_last_message_id: first.message_id.clone()
         })
     );
     assert_eq!(
-        s.agent_post_main(&ch, "b", Some(&first.message_id))
+        s.agent_post_main(&ch, "b", false, Some(&first.message_id))
             .unwrap()
             .author,
         Author::Agent
@@ -47,7 +50,7 @@ fn validates_text() {
     let (mut s, ch) = setup();
     assert_eq!(s.user_post_main(&ch, "   "), Err(Error::EmptyText));
     assert_eq!(
-        s.agent_post_main(&ch, &"あ".repeat(20_001), None),
+        s.agent_post_main(&ch, &"あ".repeat(20_001), false, None),
         Err(Error::TextTooLong)
     );
 }
@@ -62,25 +65,25 @@ fn missing_channel() {
 #[test]
 fn thread_creation_rules() {
     let (mut s, ch) = setup();
-    let parent = s.agent_post_main(&ch, "親", None).unwrap();
+    let parent = s.agent_post_main(&ch, "親", false, None).unwrap();
     assert_eq!(
-        s.agent_create_thread(&ch, "missing", "x"),
+        s.agent_create_thread(&ch, "missing", "x", false),
         Err(Error::MessageNotFound)
     );
     let (thread, first) = s
-        .agent_create_thread(&ch, &parent.message_id, "最初")
+        .agent_create_thread(&ch, &parent.message_id, "最初", false)
         .unwrap();
     assert_eq!(thread.reply_count, 1);
     assert_eq!(thread.post_count, 2);
     assert_eq!(thread.awaiting, Some(Author::User));
     assert_eq!(
-        s.agent_create_thread(&ch, &parent.message_id, "x"),
+        s.agent_create_thread(&ch, &parent.message_id, "x", false),
         Err(Error::ThreadExists {
             thread_id: thread.thread_id.clone()
         })
     );
     assert_eq!(
-        s.agent_create_thread(&ch, &first.message_id, "x"),
+        s.agent_create_thread(&ch, &first.message_id, "x", false),
         Err(Error::ParentNotMain)
     );
     assert_eq!(
@@ -109,11 +112,11 @@ fn other_channels_are_invisible() {
         Err(Error::ThreadNotFound)
     );
     assert_eq!(
-        s.agent_post_thread(&other, &thread.thread_id, "x", None),
+        s.agent_post_thread(&other, &thread.thread_id, "x", false, None),
         Err(Error::ThreadNotFound)
     );
     assert_eq!(
-        s.agent_create_thread(&other, &parent, "x"),
+        s.agent_create_thread(&other, &parent, "x", false),
         Err(Error::MessageNotFound)
     );
 }
@@ -135,7 +138,7 @@ fn agent_resolve_guards() {
         Err(Error::StaleAfter { .. })
     ));
     let reply = s
-        .agent_post_thread(&ch, t, "完了", Some(&thread.last_message_id))
+        .agent_post_thread(&ch, t, "完了", false, Some(&thread.last_message_id))
         .unwrap();
     let resolved = s.agent_resolve(&ch, t, &reply.message_id).unwrap();
     assert_eq!(resolved.resolved_by, Some(Author::Agent));
@@ -145,7 +148,7 @@ fn agent_resolve_guards() {
         Err(Error::AlreadyResolved { .. })
     ));
     assert!(matches!(
-        s.agent_post_thread(&ch, t, "x", Some(&reply.message_id)),
+        s.agent_post_thread(&ch, t, "x", false, Some(&reply.message_id)),
         Err(Error::ThreadResolved { .. })
     ));
     let reopened = s.agent_unresolve(&ch, t).unwrap();
@@ -221,6 +224,7 @@ fn thread_filters_and_order() {
         &ch,
         &waiting_user.thread_id,
         "質問",
+        false,
         Some(&waiting_user.last_message_id),
     )
     .unwrap();
@@ -264,8 +268,10 @@ fn thread_filters_and_order() {
 fn read_positions_only_move_forward() {
     let (mut s, ch) = setup();
     let scope = Scope::Main { channel_id: &ch };
-    let a = s.agent_post_main(&ch, "a", None).unwrap();
-    let b = s.agent_post_main(&ch, "b", Some(&a.message_id)).unwrap();
+    let a = s.agent_post_main(&ch, "a", false, None).unwrap();
+    let b = s
+        .agent_post_main(&ch, "b", false, Some(&a.message_id))
+        .unwrap();
     assert_eq!(
         s.first_unread(scope).unwrap().as_deref(),
         Some(a.message_id.as_str())
@@ -283,8 +289,10 @@ fn read_positions_only_move_forward() {
 fn partial_read_leaves_the_rest_unread() {
     let (mut s, ch) = setup();
     let scope = Scope::Main { channel_id: &ch };
-    let a = s.agent_post_main(&ch, "a", None).unwrap();
-    let b = s.agent_post_main(&ch, "b", Some(&a.message_id)).unwrap();
+    let a = s.agent_post_main(&ch, "a", false, None).unwrap();
+    let b = s
+        .agent_post_main(&ch, "b", false, Some(&a.message_id))
+        .unwrap();
     s.mark_read(scope, &a.message_id).unwrap();
     assert_eq!(
         s.first_unread(scope).unwrap().as_deref(),
@@ -300,7 +308,7 @@ fn unread_axes_are_independent() {
     let scope = Scope::Thread { thread_id: t };
     assert!(!s.has_unread(scope).unwrap(), "own reply is read");
     let reply = s
-        .agent_post_thread(&ch, t, "返答", Some(&thread.last_message_id))
+        .agent_post_thread(&ch, t, "返答", false, Some(&thread.last_message_id))
         .unwrap();
     assert!(s.has_unread(scope).unwrap());
     s.agent_resolve(&ch, t, &reply.message_id).unwrap();
@@ -321,7 +329,7 @@ fn only_unresolved_threads_count_as_unread_unresolved() {
         "own reply is read"
     );
     let reply = s
-        .agent_post_thread(&ch, t, "返答", Some(&thread.last_message_id))
+        .agent_post_thread(&ch, t, "返答", false, Some(&thread.last_message_id))
         .unwrap();
     assert!(s.has_unread_unresolved_thread(&ch).unwrap());
 
@@ -339,7 +347,7 @@ fn deleting_a_channel_removes_everything_in_it_and_nothing_else() {
     let (_, thread) = threaded(&mut s, &ch);
     let t = thread.thread_id.clone();
     let reply = s
-        .agent_post_thread(&ch, &t, "検索語あり", Some(&thread.last_message_id))
+        .agent_post_thread(&ch, &t, "検索語あり", false, Some(&thread.last_message_id))
         .unwrap();
     s.agent_resolve(&ch, &t, &reply.message_id).unwrap();
     s.mark_read(Scope::Thread { thread_id: &t }, &reply.message_id)
@@ -382,9 +390,9 @@ fn unread_items_list_main_timelines_and_threads_newest_first() {
     assert!(s.unread_items().unwrap().is_empty(), "own posts are read");
 
     let other = s.create_channel("別", &launch()).unwrap().channel_id;
-    let main = s.agent_post_main(&other, "報告", None).unwrap();
+    let main = s.agent_post_main(&other, "報告", false, None).unwrap();
     let main = s
-        .agent_post_main(&other, "続報", Some(&main.message_id))
+        .agent_post_main(&other, "続報", false, Some(&main.message_id))
         .unwrap();
     let items = s.unread_items().unwrap();
     assert_eq!(items.len(), 1);
@@ -393,7 +401,7 @@ fn unread_items_list_main_timelines_and_threads_newest_first() {
     assert!(items[0].thread.is_none());
 
     let reply = s
-        .agent_post_thread(&ch, &t, "返答", Some(&thread.last_message_id))
+        .agent_post_thread(&ch, &t, "返答", false, Some(&thread.last_message_id))
         .unwrap();
     assert!(s.has_unread_thread().unwrap());
     s.agent_resolve(&ch, &t, &reply.message_id).unwrap();
@@ -492,7 +500,7 @@ fn nudge_condition_for_main() {
     assert!(!s.main_needs_response(&ch).unwrap());
     let posted = s.user_post_main(&ch, "依頼").unwrap();
     assert!(s.main_needs_response(&ch).unwrap());
-    s.agent_create_thread(&ch, &posted.message_id, "対応")
+    s.agent_create_thread(&ch, &posted.message_id, "対応", false)
         .unwrap();
     assert!(
         !s.main_needs_response(&ch).unwrap(),
@@ -576,7 +584,7 @@ fn search_count_covers_all_pages() {
     for _ in 0..3 {
         last = Some(
             store
-                .agent_post_main(&channel, "ログイン修正", last.as_deref())
+                .agent_post_main(&channel, "ログイン修正", false, last.as_deref())
                 .unwrap()
                 .message_id,
         );
@@ -604,7 +612,7 @@ fn agent_messages_after_skips_users_and_older() {
     let watermark = store.newest_message_id().unwrap();
     assert_eq!(watermark.as_deref(), Some(first.message_id.as_str()));
     let reply = store
-        .agent_post_main(&channel, "返事", Some(&first.message_id))
+        .agent_post_main(&channel, "返事", false, Some(&first.message_id))
         .unwrap();
     store.user_post_main(&channel, "次").unwrap();
     let found = store.agent_messages_after(watermark.as_deref()).unwrap();
@@ -630,4 +638,91 @@ fn finds_the_channel_of_a_thread() {
         Some(channel)
     );
     assert_eq!(store.channel_of_thread("missing").unwrap(), None);
+}
+
+#[test]
+fn a_continuing_thread_awaits_the_agent_until_resolved() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = &thread.thread_id;
+    let progress = s
+        .agent_post_thread(&ch, t, "途中経過", true, Some(&thread.last_message_id))
+        .unwrap();
+    assert!(progress.agent_continues);
+    let continuing = s.thread(&ch, t).unwrap();
+    assert!(continuing.agent_continues);
+    assert_eq!(continuing.awaiting, Some(Author::Agent));
+    let ids = |s: &Store, filter| {
+        s.list_threads(&ch, filter, None, None)
+            .unwrap()
+            .items
+            .into_iter()
+            .map(|t| t.thread_id)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&s, ThreadFilter::AwaitingAgent), vec![t.clone()]);
+    assert!(ids(&s, ThreadFilter::AwaitingUser).is_empty());
+    let summary = s.channel_summary(&ch).unwrap();
+    assert_eq!(summary.thread_count_awaiting_agent, 1);
+    assert_eq!(summary.thread_count_awaiting_user, 0);
+
+    assert_eq!(
+        s.agent_resolve(&ch, t, &progress.message_id),
+        Err(Error::AgentContinues {
+            last_message_id: progress.message_id.clone()
+        })
+    );
+
+    // The user can still resolve it, which drops it from the queue.
+    s.user_resolve(&ch, t).unwrap();
+    assert!(ids(&s, ThreadFilter::AwaitingAgent).is_empty());
+    assert_eq!(s.thread(&ch, t).unwrap().awaiting, None);
+}
+
+#[test]
+fn a_finishing_post_hands_the_thread_to_the_user() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    let t = &thread.thread_id;
+    let progress = s
+        .agent_post_thread(&ch, t, "途中経過", true, Some(&thread.last_message_id))
+        .unwrap();
+    let done = s
+        .agent_post_thread(&ch, t, "完了", false, Some(&progress.message_id))
+        .unwrap();
+    let finished = s.thread(&ch, t).unwrap();
+    assert!(!finished.agent_continues);
+    assert_eq!(finished.awaiting, Some(Author::User));
+    s.agent_resolve(&ch, t, &done.message_id).unwrap();
+}
+
+#[test]
+fn the_main_timeline_awaits_the_agent_when_unanswered_or_continuing() {
+    let (mut s, ch) = setup();
+    assert_eq!(s.main_awaiting_agent(&ch).unwrap(), None);
+    let asked = s.user_post_main(&ch, "依頼").unwrap();
+    let unanswered = s.main_awaiting_agent(&ch).unwrap().unwrap();
+    assert_eq!(unanswered.last_message_id, asked.message_id);
+    assert_eq!(unanswered.last_author, Author::User);
+
+    let progress = s
+        .agent_post_main(&ch, "途中経過", true, Some(&asked.message_id))
+        .unwrap();
+    let continuing = s.main_awaiting_agent(&ch).unwrap().unwrap();
+    assert_eq!(continuing.last_message_id, progress.message_id);
+    assert_eq!(continuing.last_author, Author::Agent);
+    assert!(s.main_needs_response(&ch).unwrap());
+
+    s.agent_post_main(&ch, "完了", false, Some(&progress.message_id))
+        .unwrap();
+    assert_eq!(s.main_awaiting_agent(&ch).unwrap(), None);
+}
+
+#[test]
+fn user_posts_never_continue() {
+    let (mut s, ch) = setup();
+    let (_, thread) = threaded(&mut s, &ch);
+    assert!(!thread.agent_continues);
+    let main = s.user_post_main(&ch, "x").unwrap();
+    assert!(!main.agent_continues);
 }
