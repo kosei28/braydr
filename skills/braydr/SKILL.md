@@ -53,6 +53,9 @@ one. Do not assume which: read the state.
    - When the page is done, query `awaiting_agent` again from the first page. Do
      not advance a cursor while resolving threads: the order changes. Repeat
      until no `unanswered` item is left; `continuing` items may remain.
+     If a page has only `continuing` items and `has_more` is true, follow
+     `next_cursor` to the next page: nothing on that page was resolved or
+     posted to, so the order has not changed.
    - If `main_awaiting_agent` is set, handle the main timeline: for
      `unanswered`, reply in main or create a thread on that post; for
      `continuing`, treat it like any `continuing` item above.
