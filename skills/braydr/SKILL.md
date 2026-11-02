@@ -44,16 +44,18 @@ one. Do not assume which: read the state.
      limit=20)`. These are the threads waiting on you.
    - Read the latest 50 main-timeline posts with
      `braydr_channel_list_posts(limit=50)`.
-   - For each awaiting thread: read `braydr_thread_list_posts`, do the work, post
-     one result, and resolve if finished. A continuing thread is work you
-     promised and did not finish; pick it up from your last post. Every item must get a post; if you
-     cannot finish, post the blocker or one focused question.
+   - For each `unanswered` thread: read `braydr_thread_list_posts`, do the
+     work, post one result, and resolve if finished. Every such item must get a
+     post; if you cannot finish, post the blocker or one focused question.
+   - A `continuing` item (your last post set `agent_continues=true`) only
+     needs a check that the work is still running; it needs no post. If the
+     work has stopped, resume it.
    - When the page is done, query `awaiting_agent` again from the first page. Do
      not advance a cursor while resolving threads: the order changes. Repeat
-     until the queue is empty.
+     until no `unanswered` item is left; `continuing` items may remain.
    - If `main_awaiting_agent` is set, handle the main timeline: for
      `unanswered`, reply in main or create a thread on that post; for
-     `continuing`, finish the work you said you would continue.
+     `continuing`, treat it like any `continuing` item above.
    - Do not post a summary of what you read. Post only results and questions.
 
 If a listed thread was resolved by the user while you were reading, re-read it
@@ -84,7 +86,8 @@ text and ids. It is not enough context to reply.
 A `[braydr] nudge` lists work that is still awaiting you. Each entry has a
 `state`: `unanswered` (the user's post) or `continuing` (your post with
 `agent_continues=true`). Read each listed thread and the main timeline, then
-handle them. Do not reply to the nudge
+handle them. For a `continuing` item, check that the work is still running;
+no post is needed. If it has stopped, resume it. Do not reply to the nudge
 itself.
 
 ## Posting rules

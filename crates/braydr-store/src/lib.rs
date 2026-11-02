@@ -1166,10 +1166,6 @@ impl Store {
             },
         ))
     }
-
-    pub fn main_needs_response(&self, channel_id: &str) -> Result<bool> {
-        Ok(self.main_awaiting_agent(channel_id)?.is_some())
-    }
 }
 
 /// The main timeline's newest post, when it awaits the agent.
@@ -1398,4 +1394,47 @@ fn load_thread(conn: &Connection, channel_id: &str, thread_id: &str) -> Result<T
         resolved_by,
         awaiting: awaiting(resolved_at.is_some(), last_author, agent_continues),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A thread the agent answered before `agent_continues` existed still awaits the user.
+    #[test]
+    fn threads_from_before_the_flag_keep_awaiting_the_user() {
+        let conn = Connection::open_in_memory().unwrap();
+        for sql in &schema::MIGRATIONS[..4] {
+            conn.execute_batch(sql).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 4).unwrap();
+        conn.execute_batch(
+            "INSERT INTO channels (channel_id, name, cwd, command, prompt, created_at)
+                VALUES ('c', 'old', '', '', '', 0);
+             INSERT INTO messages (message_id, channel_id, author, text, created_at)
+                VALUES ('1', 'c', 'user', 'parent', 0);
+             INSERT INTO threads (thread_id, channel_id, parent_message_id, created_at, updated_at)
+                VALUES ('t', 'c', '1', 0, 0);
+             INSERT INTO messages (message_id, channel_id, thread_id, author, text, created_at)
+                VALUES ('2', 'c', 't', 'agent', 'answer', 0);",
+        )
+        .unwrap();
+
+        let store = Store::setup(conn, Box::new(|| 0)).unwrap();
+
+        let thread = store.thread("c", "t").unwrap();
+        assert!(!thread.agent_continues);
+        assert_eq!(thread.awaiting, Some(Author::User));
+        let ids = |filter| {
+            store
+                .list_threads("c", filter, None, None)
+                .unwrap()
+                .items
+                .into_iter()
+                .map(|t| t.thread_id)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(ids(ThreadFilter::AwaitingUser), ["t"]);
+        assert!(ids(ThreadFilter::AwaitingAgent).is_empty());
+    }
 }
