@@ -14,10 +14,19 @@ to that channel, so you never pass a channel id.
 - A thread starts from one main-timeline message. The parent stays in the main
   timeline; replies live in the thread.
 - A thread is unresolved until someone resolves it.
+- Every post you make sets `agent_continues`. `true` means you will keep
+  working on it after this post whether or not the user replies (an interim
+  report, a "starting now"). `false` means this post ends your turn and you
+  wait for the user.
 - "Awaiting you" means the thread is unresolved and the last post is from the
-  user. That is your work queue.
+  user (unanswered) or from you with `agent_continues=true` (continuing). That
+  is your work queue.
 - "Awaiting the user" means the thread is unresolved and the last post is from
-  you. Do not resolve it while you are waiting for an answer.
+  you with `agent_continues=false`. Do not resolve it while you are waiting for
+  an answer.
+- The main timeline awaits you the same way, unless its newest post has a
+  child thread: `braydr_channel_get` reports it in `main_awaiting_agent` with
+  `state` `unanswered` or `continuing`.
 - Unread is a user-only concept. Do not reason about it.
 
 ## When the session starts
@@ -36,13 +45,15 @@ one. Do not assume which: read the state.
    - Read the latest 50 main-timeline posts with
      `braydr_channel_list_posts(limit=50)`.
    - For each awaiting thread: read `braydr_thread_list_posts`, do the work, post
-     one result, and resolve if finished. Every item must get a post; if you
+     one result, and resolve if finished. A continuing thread is work you
+     promised and did not finish; pick it up from your last post. Every item must get a post; if you
      cannot finish, post the blocker or one focused question.
    - When the page is done, query `awaiting_agent` again from the first page. Do
      not advance a cursor while resolving threads: the order changes. Repeat
      until the queue is empty.
-   - If the newest main post is from the user and has no `child_thread_id`,
-     handle it: reply in main or create a thread on it.
+   - If `main_awaiting_agent` is set, handle the main timeline: for
+     `unanswered`, reply in main or create a thread on that post; for
+     `continuing`, finish the work you said you would continue.
    - Do not post a summary of what you read. Post only results and questions.
 
 If a listed thread was resolved by the user while you were reading, re-read it
@@ -66,11 +77,14 @@ text and ids. It is not enough context to reply.
      instead of creating a new one.
    - Do not answer a new main request only inside an unrelated thread.
 3. Work.
-4. Post one consolidated result. Pass `after` when the tool requires it.
+4. Post one consolidated result with `agent_continues=false`. Pass `after` when
+   the tool requires it.
 5. If the request is in a thread and is complete, resolve the thread.
 
-A `[braydr] nudge` lists work that is still awaiting you. Read each listed
-thread and the main timeline, then handle them. Do not reply to the nudge
+A `[braydr] nudge` lists work that is still awaiting you. Each entry has a
+`state`: `unanswered` (the user's post) or `continuing` (your post with
+`agent_continues=true`). Read each listed thread and the main timeline, then
+handle them. Do not reply to the nudge
 itself.
 
 ## Posting rules
@@ -83,11 +97,15 @@ itself.
 - If `braydr_thread_create` returns `thread_exists`, read the returned thread.
   If its first post is yours, treat the create as delivered; otherwise post in
   the thread.
-- Do not post progress chatter. Post results, blockers, and questions.
+- Set `agent_continues` honestly. If you post an interim report and keep going,
+  pass `true`; your final post on the work must pass `false`, or the work stays
+  in your queue and the nudges keep coming.
+- Do not post progress chatter. Post results, blockers, questions, and interim
+  reports the user needs while long work continues.
 - One consolidated reply is better than several fragments.
 - Include what changed, how it was verified, and any remaining risk.
-- If you need an answer, ask at most one focused question and leave the thread
-  unresolved. The app will show it as awaiting the user.
+- If you need an answer, ask at most one focused question with
+  `agent_continues=false` and leave the thread unresolved. The app will show it as awaiting the user.
 
 ## Resolution
 
@@ -95,6 +113,11 @@ itself.
   needed. Resolving does not post a message. Pass the id of your final post as
   `after`.
 - Do not resolve a thread whose last post is from the user. Reply first.
+- You cannot resolve a thread whose last post is yours with
+  `agent_continues=true` (`agent_continues` error). Post the final result with
+  `false`, then resolve.
+- The user can resolve a thread you are continuing. Treat that as a
+  cancellation: it leaves your queue, so stop that work.
 - The app automatically reopens a resolved thread when the user posts in it.
   You do not need to reopen it for an additional request.
 - If a thread is already resolved but you decide more work is needed (for
@@ -109,7 +132,8 @@ itself.
 
 ## Tools
 
-- `braydr_channel_get` — channel name, counts, and last main post.
+- `braydr_channel_get` — channel name, counts, last main post, and
+  `main_awaiting_agent`.
 - `braydr_channel_list_posts` — main timeline, oldest to newest per page.
 - `braydr_thread_get` — thread metadata and parent message.
 - `braydr_thread_list_posts` — parent message, thread state, and replies.
@@ -118,9 +142,11 @@ itself.
   threads, newest first. Use it to find past decisions and context.
 - `braydr_thread_list` — filter: `unresolved`, `awaiting_agent`,
   `awaiting_user`, `resolved`, `all`. Paginated.
-- `braydr_channel_create_post` — main timeline post.
-- `braydr_thread_create_post` — thread reply.
-- `braydr_thread_create` — start a thread and post its first reply.
+- `braydr_channel_create_post` — main timeline post. Requires
+  `agent_continues`.
+- `braydr_thread_create_post` — thread reply. Requires `agent_continues`.
+- `braydr_thread_create` — start a thread and post its first reply. Requires
+  `agent_continues`.
 - `braydr_thread_resolve` / `braydr_thread_unresolve`.
 
 Prefer `awaiting_agent` over scanning all unresolved threads when you need your

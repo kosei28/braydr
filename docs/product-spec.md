@@ -53,8 +53,9 @@
 | メッセージ | タイムラインに並ぶ発言 1 つ。`author` は `user` か `agent` |
 | 未解決 | スレッドの状態。`resolved_at` が null |
 | 解決済み | スレッドの状態。`resolved_at` が非 null |
-| 未返信（エージェント待ち） | 未解決スレッドのうち、最後のメッセージがユーザーのもの。エージェントが返す番。エージェントのツールとループでだけ使う |
-| 未返信（ユーザー待ち） | 未解決スレッドのうち、最後のメッセージがエージェントのもの。エージェントのツールでだけ使う |
+| 続行フラグ | エージェントの投稿に付く `agent_continues`。true は、ユーザーの返信に関係なくエージェントがその投稿のあとも作業を続けること（途中経過の報告など）。ユーザーの投稿では常に false |
+| 未返信（エージェント待ち） | 未解決スレッドのうち、最後のメッセージがユーザーのもの（未返信）か、続行フラグが true のエージェントのもの（続行中）。エージェントの番。エージェントのツールとループでだけ使う |
+| 未返信（ユーザー待ち） | 未解決スレッドのうち、最後のメッセージが続行フラグ false のエージェントのもの。エージェントのツールでだけ使う |
 | 解決状態の履歴 | スレッドの解決・再開の記録。誰がいつ操作したかを持つ。メッセージではない |
 | 既読位置 | ユーザーごとの、スコープごとの最終既読メッセージ。ユーザー向けのみ |
 | 未読 | 既読位置より新しいメッセージがあること。解決状態・未返信とは別軸。UI は有無だけを示す |
@@ -62,7 +63,7 @@
 ### 3.1 3 つの軸は独立
 
 - **解決状態**: スレッドを閉じたかどうか。`resolved_at` の有無だけ。
-- **未返信**: 未解決のスレッドの中でだけ成立する。最後の投稿者がどちらかで決まる。
+- **未返信**: 未解決のスレッドの中でだけ成立する。最後の投稿者と、その投稿の続行フラグで決まる。
   エージェント向けの概念で、ユーザー向けの UI には出さない。
 - **未読**: ユーザーがそのスコープを最後にどこまで読んだかで決まる。解決状態とも
   未返信とも連動しない。
@@ -82,8 +83,13 @@
 
 メインの依頼への対応は、次のどちらかで完了する。
 
-1. メインのタイムラインにエージェントが返信する
+1. メインのタイムラインにエージェントが続行フラグ false で返信する
 2. そのメイン投稿を親とするスレッドを作り、そこへ返信する
+
+ただし、エージェントが作業を取りこぼさないよう、メインのタイムラインについても
+「エージェントの番か」だけはツールとループで扱う（6.3 の `main_awaiting_agent`、10.1）。
+メインの最後の投稿に子スレッドが無く、それがユーザーのもの（未返信）か、続行フラグが
+true のエージェントのもの（続行中）なら、エージェントの番とみなす。
 
 ---
 
@@ -170,8 +176,11 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
     未解決に戻す → 投稿する、の順を必須にして、意図を明確にする。
 - エージェントの解決にはガードを置く（6.3）。
   - 最後の投稿がユーザーのままでは解決できない（未返信を閉じない）。
+  - 最後の投稿が続行フラグ true のエージェントのものなら解決できない（続ける作業を閉じない）。
   - 解決時は `after` が最新と一致している必要がある（解決直前の新着を取りこぼさない）。
-- ユーザーはこのガードを受けない。ユーザーはいつでも解決できる。
+- ユーザーはこのガードを受けない。ユーザーはいつでも解決できる。続行中のスレッドも解決でき、
+  それは作業の取りやめを意味する。解決済みのスレッドは続行フラグに関係なく
+  未返信（エージェント待ち）にも督促の対象にもならない。
 
 ### 4.4 未解決スレッドの一覧
 
@@ -345,6 +354,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `thread_id` | 所属スレッド。null ならメインのタイムライン |
 | `author` | `user` または `agent` |
 | `text` | Markdown。1〜20,000 文字。空白のみは不可 |
+| `agent_continues` | 続行フラグ。エージェントが投稿時に必ず指定する。ユーザーの投稿では false |
 | `created_at` | 投稿時刻 |
 
 補足:
@@ -409,7 +419,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `last_message_id` | 親を含めた最後のメッセージ |
 | `last_message_at` | その投稿時刻 |
 | `last_author` | 親を含めた最後の投稿者 |
-| `awaiting` | 未解決なら `agent`（最後がユーザー）または `user`（最後がエージェント）。解決済みなら null |
+| `agent_continues`（スレッド） | 最後の投稿がエージェントのもので、その続行フラグが true か |
+| `awaiting` | 未解決なら `agent`（最後がユーザー、または最後がエージェントで続行フラグ true）または `user`（最後がエージェントで続行フラグ false）。解決済みなら null |
 | `post_count`（チャンネル） | メインのタイムラインのメッセージ数 |
 | スレッド未読 | スレッド内の返信に、既読位置より新しいものがあるか |
 | メイン未読 | メインのメッセージに、既読位置より新しいものがあるか |
@@ -519,9 +530,9 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `braydr_thread_list_posts` | `thread_id`, `cursor?`, `limit` | `cursor` / `next_cursor` |
 | `braydr_message_get` | `message_id` | なし |
 | `braydr_message_search` | `query`, `cursor?`, `limit` | `cursor` / `next_cursor` |
-| `braydr_channel_create_post` | `text`, `after?` | なし |
-| `braydr_thread_create_post` | `thread_id`, `text`, `after?` | なし |
-| `braydr_thread_create` | `parent_message_id`, `text` | なし |
+| `braydr_channel_create_post` | `text`, `agent_continues`, `after?` | なし |
+| `braydr_thread_create_post` | `thread_id`, `text`, `agent_continues`, `after?` | なし |
+| `braydr_thread_create` | `parent_message_id`, `text`, `agent_continues` | なし |
 | `braydr_thread_resolve` | `thread_id`, `after` | なし |
 | `braydr_thread_unresolve` | `thread_id` | なし |
 
@@ -530,7 +541,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 #### `braydr_channel_get()`
 
-チャンネルの名前と状態を返す。メインのタイムラインの件数、最後の投稿、スレッドの集計。
+チャンネルの名前と状態を返す。メインのタイムラインの件数、最後の投稿、メインが
+エージェント待ちか、スレッドの集計。
 
 返り値:
 
@@ -545,7 +557,12 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   "thread_count_unresolved": 2,
   "thread_count_resolved": 2,
   "thread_count_awaiting_agent": 1,
-  "thread_count_awaiting_user": 1
+  "thread_count_awaiting_user": 1,
+  "main_awaiting_agent": {
+    "state": "continuing",
+    "last_message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
+    "last_message_at": "2026-10-31T01:23:45.123Z"
+  }
 }
 ```
 
@@ -556,6 +573,10 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `thread_count_awaiting_agent` は未返信（エージェント待ち）の数。
 - `thread_count_awaiting_user` は未返信（ユーザー待ち）の数。
 - `thread_count_unresolved` は上の 2 つの合計。
+- `main_awaiting_agent` はメインのタイムラインがエージェントの番のとき、その最後の投稿を示す。
+  そうでなければ null。条件は 3.2 と 10.1 と同じ。`state` は `unanswered`（最後がユーザー）
+  か `continuing`（最後がエージェントで続行フラグ true）。メインはスレッドと違って
+  一覧にする単位が無いので、スレッドの集計と並べてここで返す。
 
 #### `braydr_channel_list_posts(cursor?, limit=50)`
 
@@ -656,8 +677,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | 値 | 内容 |
 | --- | --- |
 | `unresolved` | すべての未解決スレッド（既定） |
-| `awaiting_agent` | 未解決かつ最後がユーザー。エージェントの作業キュー |
-| `awaiting_user` | 未解決かつ最後がエージェント。ユーザーの返信待ち |
+| `awaiting_agent` | 未解決かつ、最後がユーザー、または最後がエージェントで続行フラグ true。エージェントの作業キュー |
+| `awaiting_user` | 未解決かつ最後がエージェントで続行フラグ false。ユーザーの返信待ち |
 | `resolved` | すべての解決済みスレッド |
 | `all` | 解決状態を問わないすべてのスレッド |
 
@@ -682,6 +703,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
       "last_message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
       "last_message_at": "2026-10-31T01:30:00.000Z",
       "last_author": "user",
+      "agent_continues": false,
       "post_count": 3,
       "reply_count": 2,
       "resolved_at": null,
@@ -710,9 +732,13 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - 本文を切り詰めない。チャンネルの外は検索できない。
 - 解決状態の履歴は対象にしない。
 
-#### `braydr_channel_create_post(text, after?)`
+#### `braydr_channel_create_post(text, agent_continues, after?)`
 
 メインのタイムラインに投稿する。`author` は `agent`。
+
+- `agent_continues` は必須の boolean。投稿のあとも、ユーザーの返信に関係なく作業を
+  続けるなら true。その投稿で自分の番を終えてユーザーを待つなら false。
+  投稿に保存し、エージェント待ちの判定と督促に使う。アプリの表示には使わない。
 
 - メインが空なら `after` は省略可。空でなければ必須。
 - 成功したか不明なときは、同じ `after` で再試行する。成功していれば `stale_after`
@@ -725,18 +751,22 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 }
 ```
 
-#### `braydr_thread_create_post(thread_id, text, after?)`
+#### `braydr_thread_create_post(thread_id, text, agent_continues, after?)`
 
 スレッドに返信する。`author` は `agent`。
+
+- `agent_continues` は `braydr_channel_create_post` と同じ。
 
 - スレッドが解決済みなら `thread_resolved`。先に `braydr_thread_unresolve` を呼ぶ。
 - `after` はスレッドの最新返信と一致する必要がある。スレッドには必ず最初の返信が
   あるので、実質必須。
 - 返り値は `braydr_channel_create_post` と同じ。
 
-#### `braydr_thread_create(parent_message_id, text)`
+#### `braydr_thread_create(parent_message_id, text, agent_continues)`
 
 スレッドの作成と最初の返信の投稿を同時に行う。`author` は `agent`。
+
+- `agent_continues` は最初の返信の続行フラグ。`braydr_channel_create_post` と同じ。
 
 - 親はメインのタイムラインのメッセージであること。スレッド内のメッセージなら
   `parent_not_main`。
@@ -763,6 +793,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - すでに解決済みなら `already_resolved`。`details` に `resolved_at` / `resolved_by`。
 - 未解決なら `after` が最新返信と一致する必要がある。
 - 最後の投稿がユーザーなら `unanswered`。未返信のまま閉じない。
+- 最後の投稿が続行フラグ true の自分のものなら `agent_continues`。続ける作業を閉じない。
+  続行フラグ false で最終結果を投稿してから解決する。ユーザーの解決はこの制限を受けない。
 - `resolved_at` を現在時刻、`resolved_by` を `agent` にする。
 - `updated_at` を更新し、解決状態の履歴に記録する。
 - 返り値はスレッドオブジェクト。
@@ -789,7 +821,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   "child_thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
   "author": "user",
   "created_at": "2026-10-31T01:23:45.123Z",
-  "text": "..."
+  "text": "...",
+  "agent_continues": false
 }
 ```
 
@@ -797,6 +830,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `child_thread_id` はこのメッセージを起点とするスレッド。無ければ null。
   スレッド内のメッセージでは常に null。
 - `author` は `user` か `agent`。
+- `agent_continues` は続行フラグ。ユーザーの投稿では常に false。
 
 #### スレッド
 
@@ -811,6 +845,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
   "last_message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
   "last_message_at": "2026-10-31T01:30:00.000Z",
   "last_author": "user",
+  "agent_continues": false,
   "post_count": 3,
   "reply_count": 2,
   "resolved_at": null,
@@ -819,6 +854,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 }
 ```
 
+- `agent_continues` は最後の投稿がエージェントのもので、続行フラグが true か。
 - `post_count` は親を含むメッセージ数。`reply_count` は親を含まない返信数。
 - `last_author` は親を含めた最後の投稿者。
 - `awaiting` は未解決なら `agent` / `user`、解決済みなら null。
@@ -858,6 +894,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | `stale_after` | `after` が最新と違う。`details.current_last_message_id` |
 | `after_required` | タイムラインが空でないのに `after` が無い |
 | `unanswered` | 最後がユーザーのスレッドをエージェントが解決しようとした。`details.last_message_id` |
+| `agent_continues` | 最後が続行フラグ true のエージェントの投稿であるスレッドをエージェントが解決しようとした。`details.last_message_id` |
 | `already_resolved` | 解決済みスレッドを解決しようとした。`details` に `resolved_at` / `resolved_by` |
 | `already_unresolved` | 未解決スレッドを未解決に戻そうとした |
 | `invalid_cursor` | `cursor` が不正、または別スコープのもの |
@@ -890,7 +927,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 1. `[braydr] new post`（scope: main）を受け取る。
 2. `braydr_channel_list_posts` で最新ページを読む。最後の ID を `after` にする。
 3. 作業する。
-4. `braydr_channel_create_post(text, after)`。
+4. `braydr_channel_create_post(text, agent_continues=false, after)`。
 5. メインには解決状態が無いので、解決しない。
 
 #### スレッドの依頼に返して解決する
@@ -898,7 +935,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 1. `[braydr] new post`（scope: thread）を受け取る。
 2. `braydr_thread_list_posts` で親と返信を読む。最後の ID を `after` にする。
 3. 作業する。
-4. `braydr_thread_create_post(thread_id, text, after)`。
+4. `braydr_thread_create_post(thread_id, text, agent_continues=false, after)`。
 5. 返ってきたメッセージ ID を `after` にして
    `braydr_thread_resolve(thread_id, after)`。
 
@@ -907,7 +944,15 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 1. `braydr_thread_get` で状態と親を確認する。
 2. `braydr_thread_unresolve(thread_id)`。
 3. `braydr_thread_create_post` で質問を投稿する。
-4. ユーザーの返事を待つので、解決しない。未返信（ユーザー待ち）になる。
+4. ユーザーの返事を待つので、続行フラグは false にし、解決しない。未返信（ユーザー待ち）になる。
+
+#### 途中経過を報告して作業を続ける
+
+1. 長い作業の途中で、`braydr_thread_create_post(thread_id, text, agent_continues=true, after)`
+   で途中経過を投稿する。
+2. ユーザーが返信しなくても、スレッドは未返信（エージェント待ち）に残り、督促の対象になる。
+   この間は解決できない（`agent_continues`）。
+3. 作業を終えたら `agent_continues=false` で結果を投稿し、必要なら解決する。
 
 #### `stale_after` になった
 
@@ -1139,15 +1184,18 @@ Braydr はこれをサポートしないが、禁止もしない。アプリか�
 
 1. **未返信（エージェント待ち）のスレッド**
    - 未解決
-   - 最後のメッセージがユーザー
+   - 最後のメッセージがユーザー（未返信）、または続行フラグ true のエージェント（続行中）
 2. **メインのタイムラインの未対応**
-   - 最後のメイン投稿がユーザー
+   - 最後のメイン投稿がユーザー（未返信）、または続行フラグ true のエージェント（続行中）
    - そのメッセージに子スレッドが無い
 
 2 の「子スレッドが無い」が重要。エージェントがメインの依頼に対して新しいスレッドを
 立てた場合、メインの最後の投稿はユーザーのまま残る。子スレッドがあるなら対応済みと
-みなし、督促しない。メインで返信した場合は最後の投稿者がエージェントになるので、
-条件から外れる。
+みなし、督促しない。続行中の投稿に子スレッドができた場合も、作業はスレッドに移ったと
+みなす（スレッド側の状態で判定する）。メインで続行フラグ false の返信をした場合は条件から外れる。
+
+解決済みのスレッドは、続行フラグに関係なく対象にしない。ユーザーによる続行中のスレッドの
+解決は取りやめとして扱う。
 
 ### 10.2 間隔
 
@@ -1167,9 +1215,9 @@ Braydr はこれをサポートしないが、禁止もしない。アプリか�
 - `terminal.get` が `live` でない場合は送らない。UI に停止を表示する。
 - セッションがまだツールを 1 度も呼んでいない場合は送らない（7.2）。
 - 督促は DB のメッセージではない。未読にも解決状態にも影響しない。
-- 返信があるまで繰り返す。返信とは、対象スレッドの最後の投稿者がエージェントになること、
-  またはメインの最後の投稿者がエージェントになること、子スレッドができること、
-  スレッドが解決されることを指す。
+- 条件が解消するまで繰り返す。解消とは、対象スレッドやメインの最後の投稿が続行フラグ
+  false のエージェントのものになること、メインの最後の投稿に子スレッドができること、
+  スレッドが解決されることを指す。続行フラグ true の投稿では解消しない。
 
 ### 10.4 形式
 
@@ -1177,9 +1225,11 @@ Braydr はこれをサポートしないが、禁止もしない。アプリか�
 [braydr] nudge
 awaiting_agent_threads:
 - thread_id: 0190c2e3-3456-7cde-8f01-23456789abcd
+  state: unanswered
   last_message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
   last_message_at: 2026-10-31T01:00:00.000Z
 main:
+  state: continuing
   last_message_id: 0190b1d2-2345-7bcd-9ef0-123456789abc
   last_message_at: 2026-10-31T01:10:00.000Z
 more: false
@@ -1189,6 +1239,7 @@ more: false
   残りは `braydr_thread_list(filter="awaiting_agent")` で確認する。
 - メインの未対応が無ければ `main` を省略する。スレッドの未対応が無ければ
   `awaiting_agent_threads` を省略する。
+- `state` は `unanswered`（最後がユーザー）か `continuing`（最後がエージェントで続行フラグ true）。
 - 本文は含めない。ID と時刻だけを送り、エージェントに読ませる。
 - 督促への返信は不要。列挙された対象を処理する。
 
@@ -1199,8 +1250,9 @@ more: false
   ループの両方から拾われうる。二重投稿は `after` で防ぐ。
 - ユーザーがスレッドを解決したら、そのスレッドへの督促は止まる。
 - ユーザーが未解決に戻しただけでは、それ自体を通知しない。ただし最後がユーザーなら
-  未返信（エージェント待ち）なので、ループの対象にはなる。最後がエージェントなら
-  未返信（ユーザー待ち）であり、エージェントの番ではない。
+  未返信（エージェント待ち）なので、ループの対象にはなる。最後が続行フラグ true の
+  エージェントでも同じ。最後が続行フラグ false のエージェントなら未返信（ユーザー待ち）であり、
+  エージェントの番ではない。
 
 ---
 
