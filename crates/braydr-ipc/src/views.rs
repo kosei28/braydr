@@ -1,7 +1,7 @@
 //! JSON shapes returned to agents. Times are UTC ISO 8601 with milliseconds.
 
-use braydr_core::{Error, Message, Page, StateEvent, Thread};
-use braydr_store::ChannelSummary;
+use braydr_core::{Author, Error, Message, Page, StateEvent, Thread};
+use braydr_store::{ChannelSummary, MainAwaiting};
 use serde_json::{Value, json};
 use time::OffsetDateTime;
 use time::macros::format_description;
@@ -24,6 +24,7 @@ pub fn message(m: &Message) -> Value {
         "author": m.author,
         "created_at": iso(m.created_at),
         "text": m.text,
+        "agent_continues": m.agent_continues,
     })
 }
 
@@ -38,6 +39,7 @@ pub fn thread(t: &Thread) -> Value {
         "last_message_id": t.last_message_id,
         "last_message_at": iso(t.last_message_at),
         "last_author": t.last_author,
+        "agent_continues": t.agent_continues,
         "post_count": t.post_count,
         "reply_count": t.reply_count,
         "resolved_at": t.resolved_at.map(iso),
@@ -55,7 +57,9 @@ pub fn state_event(e: &StateEvent) -> Value {
     })
 }
 
-pub fn summary(s: &ChannelSummary) -> Value {
+/// `main_awaiting_agent`: `unanswered` (the user's post) or `continuing` (yours, with
+/// `agent_continues`), or null when the main timeline does not await the agent.
+pub fn summary(s: &ChannelSummary, main: Option<&MainAwaiting>) -> Value {
     json!({
         "channel_id": s.channel.channel_id,
         "name": s.channel.name,
@@ -67,6 +71,14 @@ pub fn summary(s: &ChannelSummary) -> Value {
         "thread_count_resolved": s.thread_count_resolved,
         "thread_count_awaiting_agent": s.thread_count_awaiting_agent,
         "thread_count_awaiting_user": s.thread_count_awaiting_user,
+        "main_awaiting_agent": main.map(|m| json!({
+            "state": match m.last_author {
+                Author::User => "unanswered",
+                Author::Agent => "continuing",
+            },
+            "last_message_id": m.last_message_id,
+            "last_message_at": iso(m.last_message_at),
+        })),
     })
 }
 

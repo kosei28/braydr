@@ -22,6 +22,7 @@ pub fn specs() -> Vec<ToolSpec> {
     let after = json!({ "type": "string", "description": "The newest message_id you read in this timeline. Required unless the timeline is empty." });
     let cursor = json!({ "type": "string", "description": "next_cursor from the previous page." });
     let limit = json!({ "type": "integer", "minimum": 1, "maximum": 100 });
+    let continues = json!({ "type": "boolean", "description": "true if you will keep working on this after the post, whether or not the user replies (it stays in your queue and in nudges). false if this post finishes your turn and you wait for the user." });
     let spec = |name, description, schema| ToolSpec {
         name,
         description,
@@ -30,7 +31,7 @@ pub fn specs() -> Vec<ToolSpec> {
     vec![
         spec(
             "braydr_channel_get",
-            "Channel name, counts, and last main post.",
+            "Channel name, counts, last main post, and whether the main timeline awaits you.",
             schema(json!({}), &[]),
         ),
         spec(
@@ -79,27 +80,30 @@ pub fn specs() -> Vec<ToolSpec> {
         spec(
             "braydr_channel_create_post",
             "Post to the main timeline.",
-            schema(json!({ "text": text, "after": after }), &["text"]),
+            schema(
+                json!({ "text": text, "agent_continues": continues, "after": after }),
+                &["text", "agent_continues"],
+            ),
         ),
         spec(
             "braydr_thread_create_post",
             "Reply in a thread.",
             schema(
-                json!({ "thread_id": id("The thread."), "text": text, "after": after }),
-                &["thread_id", "text"],
+                json!({ "thread_id": id("The thread."), "text": text, "agent_continues": continues, "after": after }),
+                &["thread_id", "text", "agent_continues"],
             ),
         ),
         spec(
             "braydr_thread_create",
             "Start a thread on a main message and post its first reply.",
             schema(
-                json!({ "parent_message_id": id("A main timeline message."), "text": text }),
-                &["parent_message_id", "text"],
+                json!({ "parent_message_id": id("A main timeline message."), "text": text, "agent_continues": continues }),
+                &["parent_message_id", "text", "agent_continues"],
             ),
         ),
         spec(
             "braydr_thread_resolve",
-            "Resolve a thread. Posts no message.",
+            "Resolve a thread. Posts no message. Fails while the last post is the user's or says you continue.",
             schema(
                 json!({ "thread_id": id("The thread."), "after": after }),
                 &["thread_id", "after"],
@@ -127,6 +131,14 @@ impl<'a> Args<'a> {
     fn required(&self, key: &str) -> Result<&'a str> {
         self.optional(key)?
             .ok_or_else(|| invalid(format!("{key} is required")))
+    }
+
+    fn flag(&self, key: &str) -> Result<bool> {
+        match self.0.get(key) {
+            None | Some(Value::Null) => Err(invalid(format!("{key} is required"))),
+            Some(Value::Bool(value)) => Ok(*value),
+            Some(_) => Err(invalid(format!("{key} must be a boolean"))),
+        }
     }
 
     fn id(&self, key: &str) -> Result<&'a str> {
@@ -182,7 +194,10 @@ pub fn call(store: &mut Store, channel: Option<&str>, tool: &str, args: &Value) 
     store.channel(channel)?;
     let args = Args(args);
     Ok(match tool {
-        "braydr_channel_get" => views::summary(&store.channel_summary(channel)?),
+        "braydr_channel_get" => views::summary(
+            &store.channel_summary(channel)?,
+            store.main_awaiting_agent(channel)?.as_ref(),
+        ),
         "braydr_channel_list_posts" => views::message_page(&store.list_posts(
             Scope::Main {
                 channel_id: channel,
@@ -229,6 +244,7 @@ pub fn call(store: &mut Store, channel: Option<&str>, tool: &str, args: &Value) 
             let message = store.agent_post_main(
                 channel,
                 args.required("text")?,
+                args.flag("agent_continues")?,
                 args.optional_id("after")?,
             )?;
             json!({ "message": views::message(&message) })
@@ -238,6 +254,7 @@ pub fn call(store: &mut Store, channel: Option<&str>, tool: &str, args: &Value) 
                 channel,
                 args.id("thread_id")?,
                 args.required("text")?,
+                args.flag("agent_continues")?,
                 args.optional_id("after")?,
             )?;
             json!({ "message": views::message(&message) })
@@ -247,6 +264,7 @@ pub fn call(store: &mut Store, channel: Option<&str>, tool: &str, args: &Value) 
                 channel,
                 args.id("parent_message_id")?,
                 args.required("text")?,
+                args.flag("agent_continues")?,
             )?;
             json!({ "thread": views::thread(&thread), "message": views::message(&message) })
         }

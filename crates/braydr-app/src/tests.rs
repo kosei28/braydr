@@ -192,7 +192,7 @@ fn notifies_for_other_timelines_and_clears_on_open(cx: &mut TestAppContext) {
     let selected = view.read_with(cx, |this, _| this.selected.clone().unwrap());
     let other = if selected == first { second } else { first };
     rt.store()
-        .agent_post_main(&other, "できました", None)
+        .agent_post_main(&other, "できました", false, None)
         .unwrap();
     rt.bump();
     poll(cx);
@@ -302,7 +302,9 @@ fn the_unread_panel_lists_other_channels_and_closes_on_escape(cx: &mut TestAppCo
         .create_channel("別", &launch())
         .unwrap()
         .channel_id;
-    rt.store().agent_post_main(&other, "報告", None).unwrap();
+    rt.store()
+        .agent_post_main(&other, "報告", false, None)
+        .unwrap();
     rt.store().create_channel("今", &launch()).unwrap();
     let (view, cx) = open(cx, &rt);
 
@@ -376,6 +378,7 @@ fn a_threads_parent_scrolls_with_it_outside_its_read_position(cx: &mut TestAppCo
                 &channel,
                 &reply.thread.thread_id,
                 "返事",
+                false,
                 Some(&reply.message.message_id),
             )
             .unwrap();
@@ -585,7 +588,7 @@ fn a_timeline_at_its_end_reads_up_to_the_newest_message(cx: &mut TestAppContext)
     let first = rt.store().user_post_main(&channel, "最初").unwrap();
     let reply = rt
         .store()
-        .agent_post_main(&channel, "返事", Some(&first.message_id))
+        .agent_post_main(&channel, "返事", false, Some(&first.message_id))
         .unwrap();
     let scope = Scope::Main {
         channel_id: &channel,
@@ -595,7 +598,7 @@ fn a_timeline_at_its_end_reads_up_to_the_newest_message(cx: &mut TestAppContext)
     let (view, cx) = open(cx, &rt);
     let newest = rt
         .store()
-        .agent_post_main(&channel, "続き", Some(&reply.message_id))
+        .agent_post_main(&channel, "続き", false, Some(&reply.message_id))
         .unwrap();
     rt.bump();
     poll(cx);

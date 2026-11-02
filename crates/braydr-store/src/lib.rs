@@ -47,7 +47,7 @@ fn optional_author_at(row: &Row<'_>, index: usize) -> rusqlite::Result<Option<Au
 
 const MESSAGE_COLUMNS: &str = "m.message_id, m.channel_id, m.thread_id,
     (SELECT t.thread_id FROM threads t WHERE t.parent_message_id = m.message_id),
-    m.author, m.created_at, m.text";
+    m.author, m.created_at, m.text, m.agent_continues";
 
 fn message_from(row: &Row<'_>) -> rusqlite::Result<Message> {
     Ok(Message {
@@ -58,6 +58,7 @@ fn message_from(row: &Row<'_>) -> rusqlite::Result<Message> {
         author: author_at(row, 4)?,
         created_at: row.get(5)?,
         text: row.get(6)?,
+        agent_continues: row.get(7)?,
     })
 }
 
@@ -106,13 +107,14 @@ fn insert_message(
     thread_id: Option<&str>,
     author: Author,
     text: &str,
+    agent_continues: bool,
     now: i64,
 ) -> Result<String> {
     let id = new_id();
     conn.execute(
-        "INSERT INTO messages (message_id, channel_id, thread_id, author, text, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, channel_id, thread_id, author.as_str(), text, now],
+        "INSERT INTO messages (message_id, channel_id, thread_id, author, text, created_at, agent_continues)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, channel_id, thread_id, author.as_str(), text, now, agent_continues],
     )
     .db()?;
     Ok(id)
@@ -544,18 +546,7 @@ impl Store {
         self.channel(channel_id)?;
         let limit = clamp_limit(limit, 20);
         let after = decode_thread_cursor(cursor)?;
-        let last_author = "(SELECT author FROM messages l WHERE l.thread_id = t.thread_id ORDER BY l.message_id DESC LIMIT 1)";
-        let condition = match filter {
-            ThreadFilter::Unresolved => "t.resolved_at IS NULL".to_owned(),
-            ThreadFilter::Resolved => "t.resolved_at IS NOT NULL".to_owned(),
-            ThreadFilter::All => "1".to_owned(),
-            ThreadFilter::AwaitingAgent => {
-                format!("t.resolved_at IS NULL AND {last_author} = 'user'")
-            }
-            ThreadFilter::AwaitingUser => {
-                format!("t.resolved_at IS NULL AND {last_author} = 'agent'")
-            }
-        };
+        let condition = thread_condition(filter);
         let (cursor_time, cursor_id) = after.unzip();
         let mut statement = self
             .conn
@@ -604,14 +595,7 @@ impl Store {
             )
             .db()?;
         let count = |filter| -> Result<i64> {
-            let last = "(SELECT author FROM messages l WHERE l.thread_id = t.thread_id ORDER BY l.message_id DESC LIMIT 1)";
-            let condition = match filter {
-                ThreadFilter::All => "1".to_owned(),
-                ThreadFilter::Unresolved => "t.resolved_at IS NULL".to_owned(),
-                ThreadFilter::Resolved => "t.resolved_at IS NOT NULL".to_owned(),
-                ThreadFilter::AwaitingAgent => format!("t.resolved_at IS NULL AND {last} = 'user'"),
-                ThreadFilter::AwaitingUser => format!("t.resolved_at IS NULL AND {last} = 'agent'"),
-            };
+            let condition = thread_condition(filter);
             self.conn
                 .query_row(
                     &format!(
@@ -806,6 +790,7 @@ impl Store {
         &mut self,
         channel_id: &str,
         text: &str,
+        agent_continues: bool,
         after: Option<&str>,
     ) -> Result<Message> {
         validate::message_text(text)?;
@@ -813,7 +798,15 @@ impl Store {
         let id = self.write(|tx, now| {
             let tail = message_tail(tx, Scope::Main { channel_id })?;
             check_after(tail.as_deref(), after)?;
-            insert_message(tx, channel_id, None, Author::Agent, text, now)
+            insert_message(
+                tx,
+                channel_id,
+                None,
+                Author::Agent,
+                text,
+                agent_continues,
+                now,
+            )
         })?;
         self.message(channel_id, &id)
     }
@@ -823,6 +816,7 @@ impl Store {
         channel_id: &str,
         thread_id: &str,
         text: &str,
+        agent_continues: bool,
         after: Option<&str>,
     ) -> Result<Message> {
         validate::message_text(text)?;
@@ -838,7 +832,15 @@ impl Store {
             }
             let tail = message_tail(tx, Scope::Thread { thread_id })?;
             check_after(tail.as_deref(), after)?;
-            let id = insert_message(tx, channel_id, Some(thread_id), Author::Agent, text, now)?;
+            let id = insert_message(
+                tx,
+                channel_id,
+                Some(thread_id),
+                Author::Agent,
+                text,
+                agent_continues,
+                now,
+            )?;
             touch_thread(tx, thread_id, now)?;
             Ok(id)
         })?;
@@ -850,6 +852,7 @@ impl Store {
         channel_id: &str,
         parent_message_id: &str,
         text: &str,
+        agent_continues: bool,
     ) -> Result<(Thread, Message)> {
         validate::message_text(text)?;
         self.channel(channel_id)?;
@@ -858,7 +861,15 @@ impl Store {
             if let Some(thread_id) = parent {
                 return Err(Error::ThreadExists { thread_id });
             }
-            create_thread(tx, channel_id, parent_message_id, Author::Agent, text, now)
+            create_thread(
+                tx,
+                channel_id,
+                parent_message_id,
+                Author::Agent,
+                text,
+                agent_continues,
+                now,
+            )
         })?;
         Ok((
             self.thread(channel_id, &thread_id)?,
@@ -887,6 +898,11 @@ impl Store {
                     last_message_id: thread.last_message_id,
                 });
             }
+            if thread.agent_continues {
+                return Err(Error::AgentContinues {
+                    last_message_id: thread.last_message_id,
+                });
+            }
             resolve(tx, thread_id, Author::Agent, now)
         })?;
         self.thread(channel_id, thread_id)
@@ -909,7 +925,7 @@ impl Store {
         validate::message_text(text)?;
         self.channel(channel_id)?;
         let id = self.write(|tx, now| {
-            let id = insert_message(tx, channel_id, None, Author::User, text, now)?;
+            let id = insert_message(tx, channel_id, None, Author::User, text, false, now)?;
             set_read(tx, Scope::Main { channel_id }, &id, now)?;
             Ok(id)
         })?;
@@ -928,8 +944,15 @@ impl Store {
         let (thread_id, message_id, created, reopened) = self.write(
             |tx, now| match load_parent(tx, channel_id, parent_message_id)? {
                 None => {
-                    let (thread_id, message_id) =
-                        create_thread(tx, channel_id, parent_message_id, Author::User, text, now)?;
+                    let (thread_id, message_id) = create_thread(
+                        tx,
+                        channel_id,
+                        parent_message_id,
+                        Author::User,
+                        text,
+                        false,
+                        now,
+                    )?;
                     set_read(
                         tx,
                         Scope::Thread {
@@ -1109,28 +1132,53 @@ impl Store {
 
     // Nudges (`docs/product-spec.md` 10.1)
 
-    /// The newest main message, if it is from the user and has no child thread.
-    pub fn main_awaiting_response(&self, channel_id: &str) -> Result<Option<(String, i64)>> {
-        let last: Option<(String, i64, String, Option<String>)> = self
+    /// The newest main message, if it awaits the agent: it has no child thread, and it is from
+    /// the user (unanswered) or from the agent with `agent_continues` set (continuing).
+    pub fn main_awaiting_agent(&self, channel_id: &str) -> Result<Option<MainAwaiting>> {
+        let last: Option<(String, i64, Author, bool, Option<String>)> = self
             .conn
             .query_row(
-                "SELECT m.message_id, m.created_at, m.author,
+                "SELECT m.message_id, m.created_at, m.author, m.agent_continues,
                         (SELECT t.thread_id FROM threads t WHERE t.parent_message_id = m.message_id)
                  FROM messages m WHERE m.channel_id = ?1 AND m.thread_id IS NULL
                  ORDER BY m.message_id DESC LIMIT 1",
                 [channel_id],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        author_at(row, 2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
             )
             .optional()
             .db()?;
-        Ok(last.and_then(|(id, at, author, child)| {
-            (author == "user" && child.is_none()).then_some((id, at))
-        }))
+        Ok(last.and_then(
+            |(last_message_id, last_message_at, author, continues, child)| {
+                let awaits = author == Author::User || continues;
+                (awaits && child.is_none()).then_some(MainAwaiting {
+                    last_message_id,
+                    last_message_at,
+                    last_author: author,
+                })
+            },
+        ))
     }
 
     pub fn main_needs_response(&self, channel_id: &str) -> Result<bool> {
-        Ok(self.main_awaiting_response(channel_id)?.is_some())
+        Ok(self.main_awaiting_agent(channel_id)?.is_some())
     }
+}
+
+/// The main timeline's newest post, when it awaits the agent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MainAwaiting {
+    pub last_message_id: String,
+    pub last_message_at: i64,
+    /// `user` when unanswered, `agent` when the agent is continuing.
+    pub last_author: Author,
 }
 
 fn wall_clock() -> i64 {
@@ -1203,12 +1251,27 @@ fn load_parent(
     }
 }
 
+/// The SQL condition on `threads t` for a filter. A thread awaits the agent when its last post
+/// is the user's, or the agent's with `agent_continues` set.
+fn thread_condition(filter: ThreadFilter) -> String {
+    let awaits_agent = "(SELECT l.author = 'user' OR l.agent_continues FROM messages l
+        WHERE l.thread_id = t.thread_id ORDER BY l.message_id DESC LIMIT 1)";
+    match filter {
+        ThreadFilter::Unresolved => "t.resolved_at IS NULL".to_owned(),
+        ThreadFilter::Resolved => "t.resolved_at IS NOT NULL".to_owned(),
+        ThreadFilter::All => "1".to_owned(),
+        ThreadFilter::AwaitingAgent => format!("t.resolved_at IS NULL AND {awaits_agent}"),
+        ThreadFilter::AwaitingUser => format!("t.resolved_at IS NULL AND NOT {awaits_agent}"),
+    }
+}
+
 fn create_thread(
     conn: &Connection,
     channel_id: &str,
     parent_message_id: &str,
     author: Author,
     text: &str,
+    agent_continues: bool,
     now: i64,
 ) -> Result<(String, String)> {
     let thread_id = new_id();
@@ -1218,7 +1281,15 @@ fn create_thread(
         params![thread_id, channel_id, parent_message_id, now],
     )
     .db()?;
-    let message_id = insert_message(conn, channel_id, Some(&thread_id), author, text, now)?;
+    let message_id = insert_message(
+        conn,
+        channel_id,
+        Some(&thread_id),
+        author,
+        text,
+        agent_continues,
+        now,
+    )?;
     Ok((thread_id, message_id))
 }
 
@@ -1234,7 +1305,15 @@ fn user_post_in_thread(
     if reopened {
         reopen(conn, thread_id, Author::User, now)?;
     }
-    let message_id = insert_message(conn, channel_id, Some(thread_id), Author::User, text, now)?;
+    let message_id = insert_message(
+        conn,
+        channel_id,
+        Some(thread_id),
+        Author::User,
+        text,
+        false,
+        now,
+    )?;
     touch_thread(conn, thread_id, now)?;
     set_read(conn, Scope::Thread { thread_id }, &message_id, now)?;
     Ok((message_id, reopened))
@@ -1294,12 +1373,12 @@ fn load_thread(conn: &Connection, channel_id: &str, thread_id: &str) -> Result<T
             message_from,
         )
         .db()?;
-    let (reply_count, last_message_id, last_message_at, last_author) = conn
+    let (reply_count, last_message_id, last_message_at, last_author, agent_continues) = conn
         .query_row(
-            "SELECT (SELECT count(*) FROM messages WHERE thread_id = ?1), message_id, created_at, author
+            "SELECT (SELECT count(*) FROM messages WHERE thread_id = ?1), message_id, created_at, author, agent_continues
              FROM messages WHERE thread_id = ?1 ORDER BY message_id DESC LIMIT 1",
             [thread_id],
-            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, author_at(row, 3)?)),
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?, row.get::<_, i64>(2)?, author_at(row, 3)?, row.get::<_, bool>(4)?)),
         )
         .db()?;
     Ok(Thread {
@@ -1312,10 +1391,11 @@ fn load_thread(conn: &Connection, channel_id: &str, thread_id: &str) -> Result<T
         last_message_id,
         last_message_at,
         last_author,
+        agent_continues,
         post_count: reply_count + 1,
         reply_count,
         resolved_at,
         resolved_by,
-        awaiting: awaiting(resolved_at.is_some(), last_author),
+        awaiting: awaiting(resolved_at.is_some(), last_author, agent_continues),
     })
 }

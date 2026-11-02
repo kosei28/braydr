@@ -77,7 +77,7 @@ fn a_full_conversation() {
         &mut s,
         c,
         "braydr_thread_create",
-        json!({ "parent_message_id": user.message_id, "text": "調べます" }),
+        json!({ "parent_message_id": user.message_id, "text": "調べます", "agent_continues": false }),
     );
     let thread_id = created["thread"]["thread_id"].as_str().unwrap().to_owned();
     assert_eq!(created["thread"]["awaiting"], "user");
@@ -90,7 +90,7 @@ fn a_full_conversation() {
         &mut s,
         c,
         "braydr_thread_create_post",
-        json!({ "thread_id": thread_id, "text": "直しました", "after": first }),
+        json!({ "thread_id": thread_id, "text": "直しました", "after": first, "agent_continues": false }),
     );
     let last = reply["message"]["message_id"].as_str().unwrap().to_owned();
 
@@ -159,7 +159,7 @@ fn a_full_conversation() {
         &mut s,
         c,
         "braydr_channel_create_post",
-        json!({ "text": "別件", "after": user.message_id }),
+        json!({ "text": "別件", "after": user.message_id, "agent_continues": false }),
     );
 }
 
@@ -228,7 +228,7 @@ fn error_codes_and_details() {
             &mut s,
             c,
             "braydr_channel_create_post",
-            json!({ "text": " " })
+            json!({ "text": " ", "agent_continues": false })
         ),
         "empty_text"
     );
@@ -237,7 +237,7 @@ fn error_codes_and_details() {
             &mut s,
             c,
             "braydr_channel_create_post",
-            json!({ "text": "あ".repeat(20_001) })
+            json!({ "text": "あ".repeat(20_001), "agent_continues": false })
         ),
         "text_too_long"
     );
@@ -259,7 +259,7 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_channel_create_post",
-        json!({ "text": "a" }),
+        json!({ "text": "a", "agent_continues": false }),
     );
     let a = a["message"]["message_id"].as_str().unwrap().to_owned();
     assert_eq!(
@@ -267,7 +267,7 @@ fn error_codes_and_details() {
             &mut s,
             c,
             "braydr_channel_create_post",
-            json!({ "text": "b" })
+            json!({ "text": "b", "agent_continues": false })
         ),
         "after_required"
     );
@@ -275,7 +275,7 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_channel_create_post",
-        json!({ "text": "b", "after": missing }),
+        json!({ "text": "b", "after": missing, "agent_continues": false }),
     )
     .unwrap_err();
     assert_eq!(stale["code"], "stale_after");
@@ -285,7 +285,7 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_thread_create",
-        json!({ "parent_message_id": a, "text": "t" }),
+        json!({ "parent_message_id": a, "text": "t", "agent_continues": false }),
     );
     let (tid, first) = (
         t["thread"]["thread_id"].as_str().unwrap().to_owned(),
@@ -295,7 +295,7 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_thread_create",
-        json!({ "parent_message_id": a, "text": "t" }),
+        json!({ "parent_message_id": a, "text": "t", "agent_continues": false }),
     )
     .unwrap_err();
     assert_eq!(exists["code"], "thread_exists");
@@ -305,7 +305,7 @@ fn error_codes_and_details() {
             &mut s,
             c,
             "braydr_thread_create",
-            json!({ "parent_message_id": first, "text": "t" })
+            json!({ "parent_message_id": first, "text": "t", "agent_continues": false })
         ),
         "parent_not_main"
     );
@@ -333,7 +333,7 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_thread_create_post",
-        json!({ "thread_id": tid, "text": "答え", "after": last }),
+        json!({ "thread_id": tid, "text": "答え", "after": last, "agent_continues": false }),
     );
     let last = r["message"]["message_id"].as_str().unwrap().to_owned();
     ok(
@@ -360,9 +360,118 @@ fn error_codes_and_details() {
         &mut s,
         c,
         "braydr_thread_create_post",
-        json!({ "thread_id": tid, "text": "x", "after": last }),
+        json!({ "thread_id": tid, "text": "x", "after": last, "agent_continues": false }),
     )
     .unwrap_err();
     assert_eq!(blocked["code"], "thread_resolved");
     assert_eq!(blocked["details"]["resolved_by"], "agent");
+}
+
+#[test]
+fn agent_continues_is_required_and_keeps_work_in_the_queue() {
+    let (mut s, ch) = setup();
+    let c = ch.as_str();
+    assert_eq!(
+        code(
+            &mut s,
+            c,
+            "braydr_channel_create_post",
+            json!({ "text": "a" })
+        ),
+        "invalid_argument"
+    );
+    assert_eq!(
+        code(
+            &mut s,
+            c,
+            "braydr_channel_create_post",
+            json!({ "text": "a", "agent_continues": "yes" })
+        ),
+        "invalid_argument"
+    );
+    for spec in tools::specs() {
+        let required = spec.schema["required"].as_array().unwrap();
+        let posts = matches!(
+            spec.name,
+            "braydr_channel_create_post" | "braydr_thread_create_post" | "braydr_thread_create"
+        );
+        assert_eq!(
+            required.contains(&json!("agent_continues")),
+            posts,
+            "{}",
+            spec.name
+        );
+    }
+
+    let summary = ok(&mut s, c, "braydr_channel_get", json!({}));
+    assert_eq!(summary["main_awaiting_agent"], Value::Null);
+    let user = s.user_post_main(c, "依頼").unwrap();
+    let summary = ok(&mut s, c, "braydr_channel_get", json!({}));
+    assert_eq!(summary["main_awaiting_agent"]["state"], "unanswered");
+    assert_eq!(
+        summary["main_awaiting_agent"]["last_message_id"],
+        user.message_id
+    );
+
+    let progress = ok(
+        &mut s,
+        c,
+        "braydr_channel_create_post",
+        json!({ "text": "途中", "agent_continues": true, "after": user.message_id }),
+    );
+    assert_eq!(progress["message"]["agent_continues"], true);
+    let progress = progress["message"]["message_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let summary = ok(&mut s, c, "braydr_channel_get", json!({}));
+    assert_eq!(summary["main_awaiting_agent"]["state"], "continuing");
+    assert_eq!(summary["main_awaiting_agent"]["last_message_id"], progress);
+
+    let created = ok(
+        &mut s,
+        c,
+        "braydr_thread_create",
+        json!({ "parent_message_id": progress, "text": "続き", "agent_continues": true }),
+    );
+    assert_eq!(created["thread"]["agent_continues"], true);
+    assert_eq!(created["thread"]["awaiting"], "agent");
+    let tid = created["thread"]["thread_id"].as_str().unwrap().to_owned();
+    let last = created["message"]["message_id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let listed = ok(
+        &mut s,
+        c,
+        "braydr_thread_list",
+        json!({ "filter": "awaiting_agent" }),
+    );
+    assert_eq!(listed["threads"][0]["thread_id"], tid);
+    let summary = ok(&mut s, c, "braydr_channel_get", json!({}));
+    assert_eq!(summary["thread_count_awaiting_agent"], 1);
+
+    let refused = call(
+        &mut s,
+        c,
+        "braydr_thread_resolve",
+        json!({ "thread_id": tid, "after": last }),
+    )
+    .unwrap_err();
+    assert_eq!(refused["code"], "agent_continues");
+    assert_eq!(refused["details"]["last_message_id"], last);
+
+    let done = ok(
+        &mut s,
+        c,
+        "braydr_thread_create_post",
+        json!({ "thread_id": tid, "text": "完了", "agent_continues": false, "after": last }),
+    );
+    let done = done["message"]["message_id"].as_str().unwrap().to_owned();
+    ok(
+        &mut s,
+        c,
+        "braydr_thread_resolve",
+        json!({ "thread_id": tid, "after": done }),
+    );
 }

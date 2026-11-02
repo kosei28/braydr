@@ -31,6 +31,8 @@ pub enum Error {
     AfterRequired,
     #[error("the last post is from the user")]
     Unanswered { last_message_id: String },
+    #[error("the last post says the agent continues")]
+    AgentContinues { last_message_id: String },
     #[error("the thread is already resolved")]
     AlreadyResolved {
         resolved_at: i64,

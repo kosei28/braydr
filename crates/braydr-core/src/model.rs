@@ -52,6 +52,8 @@ pub struct Message {
     pub author: Author,
     pub created_at: i64,
     pub text: String,
+    /// Set by the agent on a post after which it keeps working, reply or not.
+    pub agent_continues: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -65,6 +67,8 @@ pub struct Thread {
     pub last_message_id: String,
     pub last_message_at: i64,
     pub last_author: Author,
+    /// The last post is the agent's, with `agent_continues` set.
+    pub agent_continues: bool,
     pub post_count: i64,
     pub reply_count: i64,
     pub resolved_at: Option<i64>,
@@ -128,13 +132,15 @@ pub enum Scope<'a> {
     Thread { thread_id: &'a str },
 }
 
-/// `awaiting` is the side whose turn it is on an unresolved thread.
-pub fn awaiting(resolved: bool, last_author: Author) -> Option<Author> {
+/// `awaiting` is the side whose turn it is on an unresolved thread. The agent's turn continues
+/// after its own post when that post sets `agent_continues`.
+pub fn awaiting(resolved: bool, last_author: Author, agent_continues: bool) -> Option<Author> {
     if resolved {
         return None;
     }
     Some(match last_author {
         Author::User => Author::Agent,
+        Author::Agent if agent_continues => Author::Agent,
         Author::Agent => Author::User,
     })
 }
@@ -149,9 +155,11 @@ mod tests {
 
     #[test]
     fn awaiting_follows_last_author() {
-        assert_eq!(awaiting(false, Author::User), Some(Author::Agent));
-        assert_eq!(awaiting(false, Author::Agent), Some(Author::User));
-        assert_eq!(awaiting(true, Author::User), None);
+        assert_eq!(awaiting(false, Author::User, false), Some(Author::Agent));
+        assert_eq!(awaiting(false, Author::Agent, false), Some(Author::User));
+        assert_eq!(awaiting(false, Author::Agent, true), Some(Author::Agent));
+        assert_eq!(awaiting(true, Author::User, false), None);
+        assert_eq!(awaiting(true, Author::Agent, true), None);
     }
 
     #[test]

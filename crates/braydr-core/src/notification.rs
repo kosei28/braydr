@@ -1,6 +1,6 @@
 //! Text sent to sessions (`docs/product-spec.md` 7.3 and 10.4).
 
-use crate::Message;
+use crate::{Author, Message};
 
 pub fn new_post_main(message: &Message) -> String {
     format!(
@@ -29,15 +29,41 @@ pub fn new_thread(thread_id: &str, parent_message_id: &str, message: &Message) -
     )
 }
 
+/// Why a nudge lists a timeline: the user's post is unanswered, or the agent said it continues.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NudgeState {
+    Unanswered,
+    Continuing,
+}
+
+impl NudgeState {
+    /// The state of a timeline that awaits the agent, from its last post's author.
+    pub fn of(last_author: Author) -> Self {
+        match last_author {
+            Author::User => NudgeState::Unanswered,
+            Author::Agent => NudgeState::Continuing,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            NudgeState::Unanswered => "unanswered",
+            NudgeState::Continuing => "continuing",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NudgeThread {
     pub thread_id: String,
+    pub state: NudgeState,
     pub last_message_id: String,
     pub last_message_at: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NudgeMain {
+    pub state: NudgeState,
     pub last_message_id: String,
     pub last_message_at: String,
 }
@@ -48,15 +74,20 @@ pub fn nudge(threads: &[NudgeThread], main: Option<&NudgeMain>, more: bool) -> S
         text.push_str("awaiting_agent_threads:\n");
         for thread in threads {
             text.push_str(&format!(
-                "- thread_id: {}\n  last_message_id: {}\n  last_message_at: {}\n",
-                thread.thread_id, thread.last_message_id, thread.last_message_at
+                "- thread_id: {}\n  state: {}\n  last_message_id: {}\n  last_message_at: {}\n",
+                thread.thread_id,
+                thread.state.as_str(),
+                thread.last_message_id,
+                thread.last_message_at
             ));
         }
     }
     if let Some(main) = main {
         text.push_str(&format!(
-            "main:\n  last_message_id: {}\n  last_message_at: {}\n",
-            main.last_message_id, main.last_message_at
+            "main:\n  state: {}\n  last_message_id: {}\n  last_message_at: {}\n",
+            main.state.as_str(),
+            main.last_message_id,
+            main.last_message_at
         ));
     }
     text.push_str(&format!("more: {more}"));
@@ -66,7 +97,6 @@ pub fn nudge(threads: &[NudgeThread], main: Option<&NudgeMain>, more: bool) -> S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Author;
 
     fn message() -> Message {
         Message {
@@ -77,6 +107,7 @@ mod tests {
             author: Author::User,
             created_at: 0,
             text: "本文\n\"引用\"".into(),
+            agent_continues: false,
         }
     }
 
@@ -97,14 +128,18 @@ mod tests {
     #[test]
     fn nudge_omits_empty_sections() {
         let main = NudgeMain {
+            state: NudgeState::Continuing,
             last_message_id: "m".into(),
             last_message_at: "at".into(),
         };
         let text = nudge(&[], Some(&main), false);
         assert!(!text.contains("awaiting_agent_threads"));
-        assert!(text.ends_with("main:\n  last_message_id: m\n  last_message_at: at\nmore: false"));
+        assert!(text.ends_with(
+            "main:\n  state: continuing\n  last_message_id: m\n  last_message_at: at\nmore: false"
+        ));
         let thread = NudgeThread {
             thread_id: "t".into(),
+            state: NudgeState::Unanswered,
             last_message_id: "m".into(),
             last_message_at: "at".into(),
         };
