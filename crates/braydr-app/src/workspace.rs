@@ -51,6 +51,10 @@ impl ThreadPane {
     pub fn parent(&self) -> &Message {
         &self.parent
     }
+
+    pub fn reply_text(&self, cx: &gpui_kit::App) -> String {
+        self.input.read(cx).value().to_string()
+    }
 }
 
 /// A channel row being dragged to a new place in the list.
@@ -336,7 +340,9 @@ impl Workspace {
         } else if restore {
             self.reopen_thread(&channel_id, window, cx);
         }
-        self.focus_composer(window, cx);
+        // Even with the sheet open, typing goes to the main composer.
+        let draft = self.current_draft(window, cx);
+        draft.update(cx, |state, cx| state.focus(window, cx));
         cx.notify();
     }
 

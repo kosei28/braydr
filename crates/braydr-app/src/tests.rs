@@ -229,11 +229,12 @@ fn reply_drafts_stay_with_their_parent(cx: &mut TestAppContext) {
         });
         cx.run_until_parked();
     }
-    view.read_with(cx, |this, _| {
+    // Its reply box holds the unsent reply, while typing goes to the main composer.
+    view.read_with(cx, |this, cx| {
         let pane = this.pane.as_ref().unwrap();
         assert_eq!(pane.parent().message_id, threaded.message_id);
+        assert_eq!(pane.reply_text(cx), "下書き2");
     });
-    view.update_in(cx, |this, window, cx| this.close_thread(window, cx));
 
     cx.simulate_keystrokes("cmd-enter");
     cx.run_until_parked();
@@ -760,6 +761,11 @@ fn a_channel_reopens_the_thread_it_had_open(cx: &mut TestAppContext) {
         let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
         assert!(timeline.scope == OwnedScope::Thread(thread_id.clone()));
     });
+    // Typing still goes to the main composer.
+    cx.simulate_input("メインへ");
+    cx.simulate_keystrokes("cmd-enter");
+    cx.run_until_parked();
+    assert!(main_texts(&rt, &shown).contains(&"メインへ".to_owned()));
 
     // Closing the sheet forgets it.
     view.update_in(cx, |this, window, cx| this.close_thread(window, cx));
@@ -843,29 +849,19 @@ fn a_thread_notification_opens_its_thread_over_the_remembered_one(cx: &mut TestA
 #[gpui_kit::test]
 fn choosing_the_shown_channel_keeps_its_sheet(cx: &mut TestAppContext) {
     let rt = runtime();
-    let (_, _, parent, thread_id) = two_channels_with_a_thread(&rt);
+    let (shown, _, parent, _) = two_channels_with_a_thread(&rt);
     let (view, cx) = open(cx, &rt);
     view.update_in(cx, |this, window, cx| {
         this.open_thread(parent.clone(), window, cx)
     });
     cx.simulate_input("書きかけ");
     click(cx, "channel-row-0");
-    // The reply still holds the text, and typing goes on there.
+    view.read_with(cx, |this, cx| {
+        assert_eq!(this.pane.as_ref().unwrap().reply_text(cx), "書きかけ");
+    });
+    // Typing moves to the main composer, as with any channel chosen.
+    cx.simulate_input("メインへ");
     cx.simulate_keystrokes("cmd-enter");
     cx.run_until_parked();
-    let texts: Vec<String> = rt
-        .store()
-        .list_posts(
-            Scope::Thread {
-                thread_id: &thread_id,
-            },
-            None,
-            Some(100),
-        )
-        .unwrap()
-        .items
-        .into_iter()
-        .map(|message| message.text)
-        .collect();
-    assert_eq!(texts, ["返信", "書きかけ"]);
+    assert!(main_texts(&rt, &shown).contains(&"メインへ".to_owned()));
 }
