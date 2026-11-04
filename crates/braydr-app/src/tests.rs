@@ -11,7 +11,7 @@ use gpui_kit::{Entity, Modifiers, MouseButton, TestAppContext, VisualTestContext
 
 use crate::overlay::Overlay;
 use crate::pane_widths::{Edge, PaneWidths};
-use crate::timeline::{Row, Rt};
+use crate::timeline::{OwnedScope, Row, Rt};
 use crate::workspace::Workspace;
 
 fn launch() -> LaunchConfig {
@@ -220,7 +220,7 @@ fn reply_drafts_stay_with_their_parent(cx: &mut TestAppContext) {
         cx.run_until_parked();
         cx.simulate_input(text);
     }
-    // Leaving the channel closes the thread.
+    // Coming back to the channel reopens the last thread it had open.
     for channel in [&other, &selected] {
         cx.update(|window, cx| {
             view.update(cx, |this, cx| {
@@ -229,7 +229,11 @@ fn reply_drafts_stay_with_their_parent(cx: &mut TestAppContext) {
         });
         cx.run_until_parked();
     }
-    view.read_with(cx, |this, _| assert!(this.pane.is_none()));
+    view.read_with(cx, |this, _| {
+        let pane = this.pane.as_ref().unwrap();
+        assert_eq!(pane.parent().message_id, threaded.message_id);
+    });
+    view.update_in(cx, |this, window, cx| this.close_thread(window, cx));
 
     cx.simulate_keystrokes("cmd-enter");
     cx.run_until_parked();
@@ -697,4 +701,171 @@ fn a_timeline_at_its_end_reads_up_to_the_newest_message(cx: &mut TestAppContext)
         rt.store().read_position(scope).unwrap().as_deref(),
         Some(newest.message_id.as_str())
     );
+}
+
+fn click(cx: &mut VisualTestContext, selector: &'static str) {
+    let at = cx.debug_bounds(selector).unwrap().center();
+    let none = Modifiers::none();
+    cx.simulate_mouse_move(at, None, none);
+    cx.simulate_mouse_down(at, MouseButton::Left, none);
+    cx.simulate_mouse_up(at, MouseButton::Left, none);
+    cx.run_until_parked();
+}
+
+/// Two channels, opened on the first in the list, which gets a thread.
+fn two_channels_with_a_thread(rt: &Rt) -> (String, String, braydr_core::Message, String) {
+    let mut store = rt.store();
+    store.create_channel("後", &launch()).unwrap();
+    store.create_channel("先", &launch()).unwrap();
+    let channels = store.channels().unwrap();
+    let (shown, other) = (
+        channels[0].channel_id.clone(),
+        channels[1].channel_id.clone(),
+    );
+    let parent = store.user_post_main(&shown, "親").unwrap();
+    let thread_id = store
+        .user_reply(&shown, &parent.message_id, "返信")
+        .unwrap()
+        .thread
+        .thread_id;
+    (shown, other, parent, thread_id)
+}
+
+fn sheet_parent(view: &Entity<Workspace>, cx: &mut VisualTestContext) -> Option<String> {
+    view.read_with(cx, |this, _| {
+        this.pane
+            .as_ref()
+            .map(|pane| pane.parent().message_id.clone())
+    })
+}
+
+#[gpui_kit::test]
+fn a_channel_reopens_the_thread_it_had_open(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (shown, other, parent, thread_id) = two_channels_with_a_thread(&rt);
+    let (view, cx) = open(cx, &rt);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+
+    click(cx, "channel-row-1");
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.selected.as_deref(), Some(other.as_str()));
+    });
+    assert_eq!(sheet_parent(&view, cx), None, "the other channel had none");
+
+    click(cx, "channel-row-0");
+    view.read_with(cx, |this, _| {
+        assert_eq!(this.selected.as_deref(), Some(shown.as_str()));
+        let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+        assert!(timeline.scope == OwnedScope::Thread(thread_id.clone()));
+    });
+
+    // Closing the sheet forgets it.
+    view.update_in(cx, |this, window, cx| this.close_thread(window, cx));
+    click(cx, "channel-row-1");
+    click(cx, "channel-row-0");
+    assert_eq!(sheet_parent(&view, cx), None);
+}
+
+#[gpui_kit::test]
+fn a_reply_draft_comes_back_as_the_thread_made_meanwhile(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (shown, _, _, _) = two_channels_with_a_thread(&rt);
+    let lone = rt.store().user_post_main(&shown, "まだ返信なし").unwrap();
+    let (view, cx) = open(cx, &rt);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(lone.clone(), window, cx)
+    });
+    view.read_with(cx, |this, _| {
+        assert!(this.pane.as_ref().unwrap().timeline.is_none());
+    });
+
+    click(cx, "channel-row-1");
+    let thread_id = rt
+        .store()
+        .user_reply(&shown, &lone.message_id, "別の経路で")
+        .unwrap()
+        .thread
+        .thread_id;
+    rt.bump();
+    poll(cx);
+    click(cx, "channel-row-0");
+    view.read_with(cx, |this, _| {
+        let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+        assert!(timeline.scope == OwnedScope::Thread(thread_id.clone()));
+    });
+}
+
+#[gpui_kit::test]
+fn a_thread_notification_opens_its_thread_over_the_remembered_one(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (shown, _, parent, remembered) = two_channels_with_a_thread(&rt);
+    let target = {
+        let mut store = rt.store();
+        let other_parent = store.user_post_main(&shown, "別の親").unwrap();
+        store
+            .user_reply(&shown, &other_parent.message_id, "返信")
+            .unwrap()
+            .thread
+            .thread_id
+    };
+    let (view, cx) = open(cx, &rt);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    click(cx, "channel-row-1");
+    {
+        let mut store = rt.store();
+        let last = store.thread(&shown, &remembered).unwrap().last_message_id;
+        store
+            .agent_post_thread(&shown, &remembered, "途中経過", false, Some(&last))
+            .unwrap();
+    }
+    rt.bump();
+    poll(cx);
+    let remembered_tag = format!("thread:{remembered}");
+    view.read_with(cx, |this, _| {
+        assert!(this.notified.contains(&remembered_tag));
+    });
+
+    view.update_in(cx, |this, window, cx| {
+        this.open_tag(&format!("thread:{target}"), window, cx)
+    });
+    view.read_with(cx, |this, _| {
+        let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+        assert!(timeline.scope == OwnedScope::Thread(target.clone()));
+        // The remembered thread never showed, so its notification stays.
+        assert!(this.notified.contains(&remembered_tag));
+    });
+}
+
+#[gpui_kit::test]
+fn choosing_the_shown_channel_keeps_its_sheet(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (_, _, parent, thread_id) = two_channels_with_a_thread(&rt);
+    let (view, cx) = open(cx, &rt);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    cx.simulate_input("書きかけ");
+    click(cx, "channel-row-0");
+    // The reply still holds the text, and typing goes on there.
+    cx.simulate_keystrokes("cmd-enter");
+    cx.run_until_parked();
+    let texts: Vec<String> = rt
+        .store()
+        .list_posts(
+            Scope::Thread {
+                thread_id: &thread_id,
+            },
+            None,
+            Some(100),
+        )
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|message| message.text)
+        .collect();
+    assert_eq!(texts, ["返信", "書きかけ"]);
 }
