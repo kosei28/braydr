@@ -104,6 +104,9 @@ pub struct Workspace {
     pub selected: Option<String>,
     pub timeline: Option<Timeline>,
     drafts: HashMap<String, Entity<TextareaState>>,
+    /// Unsent replies by channel and parent message, so a thread's reply survives leaving it,
+    /// including one written before the thread exists.
+    reply_drafts: HashMap<(String, String), Entity<TextareaState>>,
     send_failed: bool,
     pub pane: Option<ThreadPane>,
     pub create: Option<CreateForm>,
@@ -135,6 +138,7 @@ impl Workspace {
             selected: None,
             timeline: None,
             drafts: HashMap::new(),
+            reply_drafts: HashMap::new(),
             send_failed: false,
             pane: None,
             create: None,
@@ -323,6 +327,8 @@ impl Workspace {
         cx: &mut Context<Self>,
     ) {
         self.drafts.remove(channel_id);
+        self.reply_drafts
+            .retain(|(channel, _), _| channel != channel_id);
         let tags = std::iter::once(format!("main:{channel_id}"))
             .chain(thread_ids.iter().map(|id| format!("thread:{id}")));
         for tag in tags {
@@ -355,14 +361,39 @@ impl Workspace {
         if let Some(draft) = self.drafts.get(&channel_id) {
             return draft.clone();
         }
+        let draft = Self::new_draft("メッセージ", window, cx);
+        self.drafts.insert(channel_id, draft.clone());
+        draft
+    }
+
+    /// Each parent message keeps its own unsent reply, whether or not its thread exists yet.
+    fn reply_draft(
+        &mut self,
+        parent: &Message,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<TextareaState> {
+        let key = (parent.channel_id.clone(), parent.message_id.clone());
+        if let Some(draft) = self.reply_drafts.get(&key) {
+            return draft.clone();
+        }
+        let draft = Self::new_draft("返信", window, cx);
+        self.reply_drafts.insert(key, draft.clone());
+        draft
+    }
+
+    fn new_draft(
+        placeholder: &'static str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<TextareaState> {
         let draft = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .auto_grow(1, 8)
-                .placeholder("メッセージ")
+                .placeholder(placeholder)
         });
         cx.subscribe(&draft, |_, _, _: &InputEvent, cx| cx.notify())
             .detach();
-        self.drafts.insert(channel_id, draft.clone());
         draft
     }
 
@@ -484,13 +515,7 @@ impl Workspace {
                 Some(parent.clone()),
             )
         });
-        let input = cx.new(|cx| {
-            TextareaState::new(window, cx)
-                .auto_grow(1, 8)
-                .placeholder("返信")
-        });
-        cx.subscribe(&input, |_, _, _: &InputEvent, cx| cx.notify())
-            .detach();
+        let input = self.reply_draft(&parent, window, cx);
         input.update(cx, |state, cx| state.focus(window, cx));
         let opened = thread
             .as_ref()
