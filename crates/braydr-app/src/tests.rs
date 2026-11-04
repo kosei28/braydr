@@ -166,6 +166,90 @@ fn drafts_stay_with_their_channel(cx: &mut TestAppContext) {
     assert!(main_texts(&rt, &selected).is_empty());
 }
 
+fn thread_texts(rt: &Rt, channel: &str, parent: &str) -> Vec<String> {
+    let store = rt.store();
+    let Some(thread) = store.thread_for_parent(channel, parent).unwrap() else {
+        return Vec::new();
+    };
+    store
+        .list_posts(
+            Scope::Thread {
+                thread_id: &thread.thread_id,
+            },
+            None,
+            Some(100),
+        )
+        .unwrap()
+        .items
+        .into_iter()
+        .map(|message| message.text)
+        .collect()
+}
+
+#[gpui_kit::test]
+fn reply_drafts_stay_with_their_parent(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (first, second) = {
+        let mut store = rt.store();
+        let first = store.create_channel("a", &launch()).unwrap().channel_id;
+        let second = store.create_channel("b", &launch()).unwrap().channel_id;
+        (first, second)
+    };
+    let (view, cx) = open(cx, &rt);
+    let selected = view.read_with(cx, |this, _| this.selected.clone().unwrap());
+    let other = if selected == first { second } else { first };
+    // One parent has no thread yet, so its reply is a draft that would start one.
+    let (unthreaded, threaded) = {
+        let mut store = rt.store();
+        let unthreaded = store.user_post_main(&selected, "親1").unwrap();
+        let threaded = store.user_post_main(&selected, "親2").unwrap();
+        store
+            .user_reply(&selected, &threaded.message_id, "最初の返信")
+            .unwrap();
+        (unthreaded, threaded)
+    };
+    rt.bump();
+    poll(cx);
+
+    cx.simulate_input("メイン");
+    for (parent, text) in [(&unthreaded, "下書き1"), (&threaded, "下書き2")] {
+        let parent = parent.clone();
+        cx.update(|window, cx| {
+            view.update(cx, |this, cx| this.open_thread(parent, window, cx));
+        });
+        cx.run_until_parked();
+        cx.simulate_input(text);
+    }
+    // Leaving the channel closes the thread.
+    for channel in [&other, &selected] {
+        cx.update(|window, cx| {
+            view.update(cx, |this, cx| {
+                this.open_tag(&format!("main:{channel}"), window, cx);
+            });
+        });
+        cx.run_until_parked();
+    }
+    view.read_with(cx, |this, _| assert!(this.pane.is_none()));
+
+    cx.simulate_keystrokes("cmd-enter");
+    cx.run_until_parked();
+    assert_eq!(main_texts(&rt, &selected), ["親1", "親2", "メイン"]);
+    for (parent, expected) in [
+        (&unthreaded, vec!["下書き1"]),
+        (&threaded, vec!["最初の返信", "下書き2"]),
+    ] {
+        let parent = parent.clone();
+        let parent_id = parent.message_id.clone();
+        cx.update(|window, cx| {
+            view.update(cx, |this, cx| this.open_thread(parent, window, cx));
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("cmd-enter");
+        cx.run_until_parked();
+        assert_eq!(thread_texts(&rt, &selected, &parent_id), expected);
+    }
+}
+
 #[gpui_kit::test]
 fn a_failed_start_keeps_the_channel_and_offers_retry(cx: &mut TestAppContext) {
     let rt = runtime();
