@@ -46,6 +46,13 @@ pub struct ThreadPane {
     send_failed: bool,
 }
 
+#[cfg(test)]
+impl ThreadPane {
+    pub fn parent(&self) -> &Message {
+        &self.parent
+    }
+}
+
 /// A channel row being dragged to a new place in the list.
 struct DraggedChannel {
     id: String,
@@ -109,6 +116,9 @@ pub struct Workspace {
     reply_drafts: HashMap<(String, String), Entity<TextareaState>>,
     send_failed: bool,
     pub pane: Option<ThreadPane>,
+    /// What each channel's right sheet shows, or showed when the user left the channel, by its
+    /// parent message. Opened again on return; kept only while the app runs.
+    open_threads: HashMap<String, String>,
     pub create: Option<CreateForm>,
     pub overlay: Option<Overlay>,
     pub sidebar_open: bool,
@@ -141,6 +151,7 @@ impl Workspace {
             reply_drafts: HashMap::new(),
             send_failed: false,
             pane: None,
+            open_threads: HashMap::new(),
             create: None,
             overlay: None,
             sidebar_open: true,
@@ -291,9 +302,25 @@ impl Workspace {
         cx.notify();
     }
 
+    /// Shows a channel with the thread it had open when the user left it.
     fn select(&mut self, channel_id: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.show_channel(channel_id, true, window, cx);
+    }
+
+    /// Shows a channel's main timeline, and with `restore` the thread it had open.
+    fn show_channel(
+        &mut self,
+        channel_id: String,
+        restore: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // Choosing the channel already shown leaves its sheet as it is.
+        let kept = self
+            .pane
+            .take()
+            .filter(|pane| pane.channel_id == channel_id);
         self.create = None;
-        self.pane = None;
         self.overlay = None;
         self.send_failed = false;
         self.timeline = Some(Timeline::open(
@@ -302,11 +329,29 @@ impl Workspace {
             None,
         ));
         let opened = OwnedScope::Main(channel_id.clone());
-        self.selected = Some(channel_id);
-        let draft = self.current_draft(window, cx);
-        draft.update(cx, |state, cx| state.focus(window, cx));
+        self.selected = Some(channel_id.clone());
         self.dismiss_opened(&opened, window, cx);
+        if kept.is_some() {
+            self.pane = kept;
+        } else if restore {
+            self.reopen_thread(&channel_id, window, cx);
+        }
+        self.focus_composer(window, cx);
         cx.notify();
+    }
+
+    fn reopen_thread(&mut self, channel_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(parent_id) = self.open_threads.get(channel_id) else {
+            return;
+        };
+        let parent = self.rt.store().message(channel_id, parent_id);
+        match parent {
+            Ok(parent) => self.open_thread(parent, window, cx),
+            Err(error) => {
+                tracing::warn!(%error, "cannot reopen the thread");
+                self.open_threads.remove(channel_id);
+            }
+        }
     }
 
     fn move_channel(&mut self, channel_id: &str, index: usize, cx: &mut Context<Self>) {
@@ -329,6 +374,7 @@ impl Workspace {
         self.drafts.remove(channel_id);
         self.reply_drafts
             .retain(|(channel, _), _| channel != channel_id);
+        self.open_threads.remove(channel_id);
         let tags = std::iter::once(format!("main:{channel_id}"))
             .chain(thread_ids.iter().map(|id| format!("thread:{id}")));
         for tag in tags {
@@ -520,6 +566,8 @@ impl Workspace {
         let opened = thread
             .as_ref()
             .map(|t| OwnedScope::Thread(t.thread_id.clone()));
+        self.open_threads
+            .insert(channel_id.clone(), parent.message_id.clone());
         self.pane = Some(ThreadPane {
             channel_id,
             parent,
@@ -536,8 +584,10 @@ impl Workspace {
         cx.notify();
     }
 
-    fn close_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.pane = None;
+    pub fn close_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(pane) = self.pane.take() {
+            self.open_threads.remove(&pane.channel_id);
+        }
         self.focus_composer(window, cx);
         cx.notify();
     }
@@ -733,8 +783,9 @@ impl Workspace {
                 .and_then(|channel_id| store.thread(&channel_id, thread_id).ok());
             drop(store);
             if let Some(thread) = thread {
+                // The notification's thread takes the sheet, so the channel's own is not opened.
                 if self.selected.as_ref() != Some(&thread.channel_id) {
-                    self.select(thread.channel_id.clone(), window, cx);
+                    self.show_channel(thread.channel_id.clone(), false, window, cx);
                 }
                 self.open_thread(thread.parent_message, window, cx);
             }

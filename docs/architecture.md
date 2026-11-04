@@ -229,6 +229,8 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 - 投稿欄は `gpui-kit` の `Textarea` を使う。⌘Enter は独自の `KeyBinding` で送信に割り当て、Enter は既定の改行のままにする。
 - 下書きは `Workspace` が `TextareaState` の Entity のまま持つ。キーはメインがチャンネル ID、返信がチャンネル ID と
   親メッセージ ID。開き直すと同じ Entity を使うので、カーソルの位置も残る。保存はせず、チャンネルの削除で捨てる。
+- チャンネルごとに開いていたスレッドを親メッセージ ID で持ち、戻ると `open_thread` で開き直す。返信欄は上の下書きを
+  そのまま使う。保存はせず、シートを閉じるかチャンネルを削除すると捨てる。
 - `list` はスクロールバーを描かないので、`gpui-base` の `Scrollbar` を `ListState` に組み合わせる。
 - フォントは IBM Plex Sans JP と IBM Plex Mono をアプリに同梱する。
 
