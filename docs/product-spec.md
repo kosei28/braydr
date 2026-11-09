@@ -487,7 +487,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - action: `get` / `list` / `list_posts` / `create` / `create_post` / `resolve` / `unresolve` / `search`
 
 ツールはチャンネルを引数に取らない。アプリはセッションの起動時に環境変数 `BRAYDR_CHANNEL_ID` を渡し、
-`braydr-mcp` がこの値で対象のチャンネルを決める。エージェントが別チャンネルを操作することはできない。
+`braydr-mcp` がこの値で対象のチャンネルを決める。接続先のアプリは、同じく渡す `BRAYDR_IPC_SOCKET` で決める。エージェントが別チャンネルを操作することはできない。
 
 ### 6.2 共通ルール
 
@@ -1137,7 +1137,10 @@ Braydr はこれをサポートしないが、禁止もしない。アプリか�
 {"jsonrpc":"2.0","id":1,"method":"terminal.run","params":{
   "line":"exec \"${SHELL:-/bin/sh}\" -ilc 'claude --model opus '\\''/braydr'\\'''",
   "cwd":"/Users/me/code/braydr",
-  "env":{"BRAYDR_CHANNEL_ID":"0190a3c4-1234-7abc-8def-0123456789ab"},
+  "env":{
+    "BRAYDR_CHANNEL_ID":"0190a3c4-1234-7abc-8def-0123456789ab",
+    "BRAYDR_IPC_SOCKET":"/Users/me/Library/Application Support/Braydr/ipc.sock"
+  },
   "labels":{"braydr":"1","channel":"0190a3c4-1234-7abc-8def-0123456789ab"},
   "wait":false
 }}

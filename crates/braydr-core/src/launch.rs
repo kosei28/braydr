@@ -3,6 +3,8 @@
 pub const DEFAULT_COMMAND: &str = "claude";
 pub const DEFAULT_PROMPT: &str = "/braydr";
 pub const ENV_CHANNEL_ID: &str = "BRAYDR_CHANNEL_ID";
+/// The socket `braydr-mcp` connects to, so a session reaches the app that started it.
+pub const ENV_IPC_SOCKET: &str = "BRAYDR_IPC_SOCKET";
 
 /// Quotes `value` as one POSIX shell word.
 pub fn shell_quote(value: &str) -> String {

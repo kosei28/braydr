@@ -91,8 +91,10 @@ fn runtime() -> Arc<Runtime<Client>> {
     if let Err(error) = runtime.reconcile() {
         tracing::warn!(?error, "cannot reconcile sessions");
     }
-    match braydr_ipc::server::bind(&dir.join("ipc.sock")) {
+    let socket = dir.join("ipc.sock");
+    match braydr_ipc::server::bind(&socket) {
         Ok(listener) => {
+            runtime.set_ipc_socket(socket);
             let handler = runtime.tool_handler();
             std::thread::spawn(move || braydr_ipc::server::serve_with(listener, handler));
         }

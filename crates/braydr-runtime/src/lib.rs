@@ -1,12 +1,13 @@
 //! Sessions, delivery, and nudges, without any UI (`docs/product-spec.md` 7, 8, and 10).
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{Sender, channel};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::Duration;
 
-use braydr_core::launch::{ENV_CHANNEL_ID, in_user_shell, shell_line};
+use braydr_core::launch::{ENV_CHANNEL_ID, ENV_IPC_SOCKET, in_user_shell, shell_line};
 use braydr_core::notification::{self, NudgeMain, NudgeState, NudgeThread};
 use braydr_core::schedule::NudgeTimer;
 use braydr_core::*;
@@ -73,6 +74,7 @@ pub struct Runtime<C: Core + 'static> {
     states: Mutex<HashMap<String, SessionState>>,
     activities: Mutex<HashMap<String, Activity>>,
     start_failed: Mutex<HashSet<String>>,
+    ipc_socket: OnceLock<PathBuf>,
 }
 
 fn labels_for(channel_id: Option<&str>) -> BTreeMap<String, String> {
@@ -95,7 +97,14 @@ impl<C: Core + 'static> Runtime<C> {
             states: Mutex::new(HashMap::new()),
             activities: Mutex::new(HashMap::new()),
             start_failed: Mutex::new(HashSet::new()),
+            ipc_socket: OnceLock::new(),
         })
+    }
+
+    /// Where the app serves the agent's tools. Sessions started afterwards are told to connect
+    /// there, which matters when the data lives somewhere other than the default.
+    pub fn set_ipc_socket(&self, path: PathBuf) {
+        let _ = self.ipc_socket.set(path);
     }
 
     /// Changes whenever data may have changed. The UI polls it.
@@ -146,10 +155,17 @@ impl<C: Core + 'static> Runtime<C> {
 
     fn start(&self, channel_id: &str) -> SessionResult<Terminal> {
         let channel = self.store().channel(channel_id)?;
+        let mut env = BTreeMap::from([(ENV_CHANNEL_ID.to_owned(), channel_id.to_owned())]);
+        if let Some(socket) = self.ipc_socket.get() {
+            env.insert(
+                ENV_IPC_SOCKET.to_owned(),
+                socket.to_string_lossy().into_owned(),
+            );
+        }
         let spec = RunSpec {
             line: in_user_shell(&shell_line(&channel.command, &channel.prompt)),
             cwd: channel.cwd,
-            env: BTreeMap::from([(ENV_CHANNEL_ID.to_owned(), channel_id.to_owned())]),
+            env,
             labels: labels_for(Some(channel_id)),
         };
         let terminal = match self.core.run(&spec) {

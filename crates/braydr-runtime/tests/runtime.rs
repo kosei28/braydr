@@ -186,6 +186,20 @@ fn create_starts_a_session_with_the_channel_settings() {
 }
 
 #[test]
+fn sessions_are_told_where_the_app_serves_their_tools() {
+    let e = env();
+    let (first, _) = e.rt.create_channel("前", &launch()).unwrap();
+    e.rt.set_ipc_socket("/data/ipc.sock".into());
+    let (second, _) = e.rt.create_channel("後", &launch()).unwrap();
+    e.rt.new_session(&first.channel_id, &launch()).unwrap();
+    let runs = e.core.runs.lock().unwrap();
+    assert!(!runs[0].env.contains_key("BRAYDR_IPC_SOCKET"));
+    assert_eq!(runs[1].env["BRAYDR_CHANNEL_ID"], second.channel_id);
+    assert_eq!(runs[1].env["BRAYDR_IPC_SOCKET"], "/data/ipc.sock");
+    assert_eq!(runs[2].env["BRAYDR_IPC_SOCKET"], "/data/ipc.sock");
+}
+
+#[test]
 fn a_failed_start_keeps_the_channel() {
     let e = env();
     *e.core.fail_run.lock().unwrap() = Some("spawn_failed".into());
