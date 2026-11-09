@@ -70,6 +70,10 @@ pub fn white() -> Hsla {
 pub fn match_mark() -> Rgba {
     c(0xFFEDB3)
 }
+/// Selected text on the user's dark bubble.
+pub fn user_selection() -> Rgba {
+    rgba(0xFFFFFF4D)
+}
 pub fn dim() -> Rgba {
     rgba(0x00000033)
 }

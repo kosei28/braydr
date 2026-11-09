@@ -8,7 +8,7 @@ use braydr_core::text::head;
 use braydr_core::{Author, LaunchConfig, Message, StateAction, Thread, validate};
 use braydr_herdr::Activity;
 use braydr_runtime::SessionState;
-use gpui_kit::base::text::CodeBlock;
+use gpui_kit::base::text::{CodeBlock, TextView as BaseTextView, TextViewStyle};
 use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaState};
 use gpui_kit::component::text::TextView;
 use gpui_kit::prelude::FluentBuilder as _;
@@ -1140,6 +1140,7 @@ impl Workspace {
         let copy_scope = format!("{is_main}-{}", message.message_id);
         let body: AnyElement = match message.author {
             Author::User => div()
+                .debug_selector(|| "user-body".into())
                 .max_w(px(520.))
                 .bg(theme::ink())
                 .rounded(px(14.))
@@ -1148,7 +1149,11 @@ impl Workspace {
                 .text_size(px(14.))
                 .line_height(px(BODY_LINE_HEIGHT))
                 .text_color(theme::white())
-                .child(message.text.clone())
+                .child(user_text(
+                    SharedString::from(format!("user-{is_main}-{}", message.message_id)),
+                    &message.text,
+                    cx,
+                ))
                 .into_any_element(),
             Author::Agent => div()
                 .debug_selector(|| "agent-body".into())
@@ -2255,4 +2260,28 @@ fn code_copy(
             })
             .into_any_element()
     }
+}
+
+/// A user's message as plain text that takes part in the window's text selection.
+///
+/// A text view keeps selection in reading order with the agent's messages, and a fence
+/// without a language keeps the text as typed: no Markdown, every space and line break.
+/// The style takes away the code block's look.
+fn user_text(id: SharedString, text: &str, cx: &App) -> BaseTextView {
+    let longest = text.split(|c| c != '`').map(str::len).max().unwrap_or(0);
+    let ticks = "`".repeat(longest.max(2) + 1);
+    let block = gpui_kit::StyleRefinement::default()
+        .p_0()
+        .border_0()
+        .font_family(theme::SANS)
+        .text_size(px(14.))
+        .line_height(px(BODY_LINE_HEIGHT));
+    BaseTextView::markdown(id, format!("{ticks}\n{text}\n{ticks}")).style(
+        TextViewStyle::from_theme(&gpui_kit::base::Theme::global(cx))
+            .with_foreground(theme::white())
+            .with_code_background(gpui_kit::transparent_black())
+            .with_border(gpui_kit::transparent_black())
+            .with_selection(theme::user_selection().into())
+            .with_code_block(block),
+    )
 }

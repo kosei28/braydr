@@ -742,6 +742,51 @@ fn a_code_blocks_button_copies_its_code(cx: &mut TestAppContext) {
     });
 }
 
+#[gpui_kit::test]
+fn a_users_message_is_selectable_in_reading_order(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt.store().create_channel("c", &launch()).unwrap().channel_id;
+    let asked = rt.store().user_post_main(&channel, "**そのまま**の質問").unwrap();
+    rt.store()
+        .agent_post_main(&channel, "エージェントの答え", false, Some(&asked.message_id))
+        .unwrap();
+    cx.update(|cx| {
+        gpui_kit::init(cx);
+        crate::apply_theme(cx);
+        crate::bind_keys(cx);
+    });
+    // The app's window is a Root, which holds the window's text selection.
+    let (_, cx) = cx.add_window_view(|window, cx| {
+        let rt = rt.clone();
+        let workspace = gpui_kit::AppContext::new(cx, |cx| Workspace::new(rt, window, cx));
+        gpui_kit::base::Root::new(workspace, window, cx)
+    });
+    settle(cx);
+    let user = cx.debug_bounds("user-body").unwrap();
+    let agent = cx.debug_bounds("agent-body").unwrap();
+    let mut drag = |from, to| {
+        let none = Modifiers::none();
+        cx.simulate_mouse_down(from, MouseButton::Left, none);
+        cx.simulate_mouse_move(to, Some(MouseButton::Left), none);
+        cx.simulate_mouse_up(to, MouseButton::Left, none);
+        cx.run_until_parked();
+        cx.update(gpui_kit::base::TextSelection::selected_text)
+    };
+    // Inside the bubble: part of the text, as typed.
+    let line = user.center().y;
+    let part = drag(
+        gpui_kit::point(user.left() + px(14.), line),
+        gpui_kit::point(user.right() - px(14.), line),
+    );
+    assert_eq!(part.trim(), "**そのまま**の質問");
+    // From the question into the answer, in reading order.
+    let both = drag(
+        gpui_kit::point(user.left() + px(14.), line),
+        gpui_kit::point(agent.right() - px(2.), agent.bottom() - px(4.)),
+    );
+    assert_eq!(both.trim(), "**そのまま**の質問\n\nエージェントの答え");
+}
+
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
     let at = cx.debug_bounds(selector).unwrap().center();
     let none = Modifiers::none();

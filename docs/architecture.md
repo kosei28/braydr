@@ -25,6 +25,7 @@
 | エージェント向けツール | `rmcp`（MCP 公式 SDK） | 3.x | stdio サーバーを作れる |
 | Markdown | `gpui-kit` の `TextView` | 同上 | 別途パーサを持たない |
 | コードの色付け | `gpui-kit` の `syntect` 機能（syntect と two-face） | 同上 | 約 200 言語。正規表現による行単位の解析で、tree-sitter ほど正確ではないが、言語ごとの C の文法を組み込まずに済む。色はアプリのテーマの `highlight_theme` で決める |
+| ユーザーのメッセージ | `gpui-base` の `TextView` に、言語名のないコードブロックとして渡す | 同上 | 選択がエージェントのメッセージと同じウィンドウ単位の選択に、読む順で加わる。コードブロックは文字を Markdown として解釈せず、空白と改行も保つ。見た目はスタイルで普通の文字に戻す。`SelectableText` は順序が固定値で、`TextView` と並べると先頭に来てしまう |
 | 通知 | GPUI の `SystemNotification` | 同上 | `tag` の置換、取り消し、選択時の応答を持つ |
 | フォルダ選択 | GPUI の `prompt_for_paths` | 同上 | `rfd` を足さずに済む |
 | ログ | `tracing` | 0.1 | 構造化ログ |
