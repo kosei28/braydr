@@ -16,7 +16,7 @@
 | 言語 | Rust（edition 2024） | stable 1.99.1 | GPUI が最新の stable を前提にする |
 | UI 基盤 | `gpui-pre`（`gpui-kit` が固定する版） | =0.3.10 | 3 章を参照 |
 | UI 部品 | `gpui-kit` | =0.8.1 | IME 対応の入力、Markdown、仮想リスト、テスト支援を持つ |
-| 非同期（アプリ） | GPUI の executor と `smol` | gpui 依存のまま | アプリに tokio を入れずに済む |
+| 非同期（アプリ） | GPUI の executor | gpui 依存のまま | アプリに tokio を入れずに済む |
 | 非同期（MCP） | `tokio` | 1.x | `rmcp` の前提。サイドカーの中に閉じる |
 | DB | SQLite（`rusqlite` + `bundled`） | 0.41 | ローカル 1 ユーザーに十分。FTS5 が有効 |
 | マイグレーション | 自前（`PRAGMA user_version`） | — | `rusqlite_migration` は最新の rusqlite に追従していない。数行で済む |
@@ -27,7 +27,7 @@
 | 通知 | GPUI の `SystemNotification` | 同上 | `tag` の置換、取り消し、選択時の応答を持つ |
 | フォルダ選択 | GPUI の `prompt_for_paths` | 同上 | `rfd` を足さずに済む |
 | ログ | `tracing` | 0.1 | 構造化ログ |
-| テスト | `#[gpui_kit::test]`、`cargo-nextest`、`proptest` | — | 6 章 |
+| テスト | `#[gpui_kit::test]`、`proptest` | — | 6 章 |
 
 採用しないもの:
 
@@ -84,7 +84,8 @@ crates/
 └ braydr-app     アプリのバイナリ（gpui-kit）
 ```
 
-依存は `app → runtime → core / store / herdr / ipc`、`mcp → ipc` の向きだけにする。
+依存は `app → runtime / store / herdr / ipc`、`runtime → core / store / herdr / ipc`、`ipc → core / store`、
+`store → core`、`mcp → ipc` の向きだけにする。
 UI なしで規則を試せるよう、仕様の判断は `braydr-core` に集める。
 
 ### スレッドと非同期
@@ -121,7 +122,7 @@ DB は `Mutex<Store>` 1 つで共有し、書き込みはこのロックで直�
 - 使うのは `gpui-kit` の入力、`TextView`、仮想リスト、`TitleBar` などに絞る。
   見た目は `design-system.md` のトークンを自前のテーマ型に写し、独自のビューで組む。
 - `gpui-pre` の公開が止まった場合は、`gpui-kit` を外して Zed のコミットを git 依存で固定する。
-  この乗り換えを小さくするため、`gpui-kit` の部品は `braydr-app` の `ui/` の中で包んで使う。
+  この乗り換えを小さくするため、`gpui-kit` の部品は `braydr-app` の `ui.rs` の中で包んで使う。
 
 ---
 
@@ -131,7 +132,7 @@ DB は `Mutex<Store>` 1 つで共有し、書き込みはこのロックで直�
 
 - 場所は `~/Library/Application Support/Braydr/braydr.db`。WAL を使い、外部キーを有効にする。
 - `product-spec.md` 5 章のエンティティをそのままテーブルにする。`channels`、`messages`、`threads`、
-  `thread_state_events`、`read_positions`。
+  `thread_state_events`、`read_positions`。ほかに設定の `settings` と、検索用の `messages_fts` を持つ。
 - 解決状態の変更と履歴の記録、解決済みへの投稿と自動の再開は、1 つのトランザクションで行う。
 - UUIDv7 は DB スレッドで生成し、スレッド内で単調に増えることをテストで確かめる。
 
@@ -167,7 +168,8 @@ INSERT のトリガーだけで足りる。1 チャンネル内の検索なの�
 ```
 
 - MCP の詳細と tokio がアプリに入らない。
-- ソケットは `~/Library/Application Support/Braydr/ipc.sock`、権限は 0600。
+- ソケットは `~/Library/Application Support/Braydr/ipc.sock`、権限は 0600。サイドカーは `BRAYDR_IPC_SOCKET` で
+  別のパスにつなげる（テストで使う）。
 - サイドカーは環境変数 `BRAYDR_CHANNEL_ID` を要求に付ける。ツールはチャンネルを引数に取らない。
 - ツールの判断（`after`、`unanswered` など）はアプリ側の `braydr-store` で行い、サイドカーは検証しない。
 - ツールの定義は `braydr-ipc` に置き、サイドカーはそれを公開して中継するだけにする。
@@ -225,7 +227,7 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
   件数が増えて読み直しが重くなったら、ページングに変える。
 - ウィンドウは `TitleBar::window_options()` を土台に、信号機の位置を y = 30 に合わせ、
   `app_owns_titlebar_drag` を有効にして、シート上部をドラッグ領域にする。
-- トークンは `design-system.md` の値を `ui/theme.rs` に写し、ビューに生の色を書かない。
+- トークンは `design-system.md` の値を `theme.rs` に写し、ビューに生の色を書かない。
 - 投稿欄は `gpui-kit` の `Textarea` を使う。⌘Enter は独自の `KeyBinding` で送信に割り当て、Enter は既定の改行のままにする。
 - 下書きは `Workspace` が `TextareaState` の Entity のまま持つ。キーはメインがチャンネル ID、返信がチャンネル ID と
   親メッセージ ID。開き直すと同じ Entity を使うので、カーソルの位置も残る。保存はせず、チャンネルの削除で捨てる。
@@ -260,8 +262,8 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 | ツール | 全ツールの正常系と全エラーコード | JSON の検証 | 常時 |
 | 配送 | 送信順序、再送、停止、督促 | 偽の herdr サーバー（Unix socket）、GPUI の決定的な executor | 常時 |
 | UI | クリック、キー入力、スクロール、フォーカス、IME の状態遷移 | `#[gpui_kit::test]`、`test-support` | 常時 |
-| 契約 | herdr-core の実 API | 実物の `hc` を `HC_SESSION` で隔離 | CI |
-| MCP | サイドカーをプロセスとして起動し、`rmcp` のクライアントで操作 | 結合テスト | CI |
+| 契約 | herdr-core の実 API | 実物の `hc` を `HC_SESSION` で隔離 | 手元 |
+| MCP | サイドカーをプロセスとして起動し、`rmcp` のクライアントで操作 | 結合テスト | 常時 |
 | 手動 | OS の IME、通知、信号機、ピクセル | 確認表 | リリース前と GPUI の更新時 |
 
 ### 重点
@@ -272,7 +274,7 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 - **通知:** テスト用コンテキストの `shown_system_notifications`、`dismissed_system_notifications`、
   `simulate_system_notification_response` で検証する。
 - **IME:** `TestInput` で変換中の Enter が送信にならないことを確かめる。OS の候補ウィンドウは手動で確認する。
-- **スキーマの追従:** `hc schema` の出力を保存したものと比べ、使うメソッドの差分を CI で検出する。
+- **スキーマの追従:** （未実装）`hc schema` の出力を保存したものと比べ、使うメソッドの差分を検出する。
 
 ### 検証できないこと
 
@@ -286,7 +288,7 @@ herdr-core のテンプレートは使わない。役割の保存機能で、ハ
 
 ### CI
 
-macOS のランナーで `cargo fmt --check`、`cargo clippy -- -D warnings`、`cargo test`。
+macOS のランナーで `cargo fmt --all --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test --all`。
 実物の `hc` を使う確認は例として置き（`braydr-herdr` の `events`、`braydr-runtime` の `e2e`）、当面は手元で実行する。
 
 ---

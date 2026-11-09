@@ -301,7 +301,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 #### 出す条件
 
-エージェントが投稿し、次のどちらかが成り立つときに出す。
+エージェントが投稿し、次のいずれかが成り立つときに出す。
 
 - ウィンドウにフォーカスがない。
 - 投稿先のタイムラインを表示していない。
@@ -600,13 +600,14 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 {
   "messages": [
     {
-      "message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
+      "message_id": "0190d3f4-4567-7def-9012-3456789abcde",
       "channel_id": "0190a3c4-1234-7abc-8def-0123456789ab",
       "thread_id": null,
       "child_thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
       "author": "user",
       "created_at": "2026-10-31T01:23:45.123Z",
-      "text": "..."
+      "text": "...",
+      "agent_continues": false
     }
   ],
   "has_more": true,
@@ -629,13 +630,14 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 {
   "thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
   "parent_message": {
-    "message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
+    "message_id": "0190d3f4-4567-7def-9012-3456789abcde",
     "channel_id": "0190a3c4-1234-7abc-8def-0123456789ab",
     "thread_id": null,
     "child_thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
     "author": "user",
     "created_at": "2026-10-31T01:20:00.000Z",
-    "text": "..."
+    "text": "...",
+    "agent_continues": false
   },
   "messages": [
     {
@@ -645,7 +647,8 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
       "child_thread_id": null,
       "author": "agent",
       "created_at": "2026-10-31T01:25:00.000Z",
-      "text": "..."
+      "text": "...",
+      "agent_continues": false
     }
   ],
   "resolved_at": null,
@@ -702,13 +705,14 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
       "channel_id": "0190a3c4-1234-7abc-8def-0123456789ab",
       "parent_message_id": "0190d3f4-4567-7def-9012-3456789abcde",
       "parent_message": {
-        "message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
+        "message_id": "0190d3f4-4567-7def-9012-3456789abcde",
         "channel_id": "0190a3c4-1234-7abc-8def-0123456789ab",
         "thread_id": null,
         "child_thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
         "author": "user",
         "created_at": "2026-10-31T01:20:00.000Z",
-        "text": "..."
+        "text": "...",
+        "agent_continues": false
       },
       "created_at": "2026-10-31T01:21:00.000Z",
       "updated_at": "2026-10-31T01:30:00.000Z",
@@ -732,7 +736,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 - `awaiting` は未解決なら `agent` か `user`、解決済みなら null。
 - カーソルは読み取り専用のスナップショットではない。処理しながら次ページへ進むと、
   更新された項目が移動して取りこぼすことがある。キューとして使うときは、
-  先頭ページを処理してから引き直す（9 章）。
+  先頭ページを処理してから引き直す（スキル `skills/braydr/SKILL.md`）。
 
 #### `braydr_message_search(query, cursor?, limit=20)`
 
@@ -827,7 +831,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 
 ```json
 {
-  "message_id": "0190b1d2-2345-7bcd-9ef0-123456789abc",
+  "message_id": "0190d3f4-4567-7def-9012-3456789abcde",
   "channel_id": "0190a3c4-1234-7abc-8def-0123456789ab",
   "thread_id": null,
   "child_thread_id": "0190c2e3-3456-7cde-8f01-23456789abcd",
@@ -995,6 +999,7 @@ herdr-core にはセッションの再開機能がない。復帰は新しいセ
 | 通知の配送 | `terminal.send` |
 | セッション停止 | `terminal.kill` |
 | 状態確認 | `terminal.get` / `terminal.list` |
+| 停止済み端末の削除 | `terminal.rm` |
 | 状態・終了イベント | `events.subscribe` |
 
 - `terminal.run` が返す `address`（例: `t7`）を `session_id` として保存する。
