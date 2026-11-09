@@ -7,7 +7,9 @@ use braydr_core::{LaunchConfig, Scope};
 use braydr_herdr::Client;
 use braydr_runtime::Runtime;
 use braydr_store::Store;
-use gpui_kit::{Entity, Modifiers, MouseButton, TestAppContext, VisualTestContext, point, px};
+use gpui_kit::{
+    Entity, ListOffset, Modifiers, MouseButton, TestAppContext, VisualTestContext, point, px,
+};
 
 use crate::overlay::Overlay;
 use crate::pane_widths::{Edge, PaneWidths};
@@ -864,4 +866,183 @@ fn choosing_the_shown_channel_keeps_its_sheet(cx: &mut TestAppContext) {
     cx.simulate_keystrokes("cmd-enter");
     cx.run_until_parked();
     assert!(main_texts(&rt, &shown).contains(&"メインへ".to_owned()));
+}
+
+#[gpui_kit::test]
+fn an_open_thread_shown_whole_clears_its_unread_marks(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let parent = rt.store().user_post_main(&channel, "親").unwrap();
+    let thread_id = rt
+        .store()
+        .user_reply(&channel, &parent.message_id, "依頼")
+        .unwrap()
+        .thread
+        .thread_id;
+    {
+        let mut store = rt.store();
+        let last = store.thread(&channel, &thread_id).unwrap().last_message_id;
+        store
+            .agent_post_thread(&channel, &thread_id, "結果", false, Some(&last))
+            .unwrap();
+    }
+    let link_unread = |view: &Entity<Workspace>, cx: &mut VisualTestContext| {
+        view.read_with(cx, |this, _| {
+            this.timeline
+                .as_ref()
+                .unwrap()
+                .rows
+                .iter()
+                .find_map(|row| match row {
+                    Row::Message(_, Some(link)) => Some(link.unread),
+                    _ => None,
+                })
+                .unwrap()
+        })
+    };
+    let (view, cx) = open(cx, &rt);
+    assert!(link_unread(&view, cx));
+    assert!(rt.store().has_unread_unresolved_thread(&channel).unwrap());
+
+    cx.update(|window, _| window.activate_window());
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    // The sheet lays out, then the frame after it reads what it shows.
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    cx.update(|window, cx| window.simulate_next_frame(cx));
+    poll(cx);
+
+    assert!(!rt.store().has_unread_unresolved_thread(&channel).unwrap());
+    assert!(!link_unread(&view, cx), "the link in main drops its dot");
+}
+
+/// Draws frames until scrolling settles, running what each frame leaves for after it.
+fn settle(cx: &mut VisualTestContext) {
+    for _ in 0..6 {
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.simulate_next_frame(cx));
+        cx.run_until_parked();
+    }
+}
+
+/// Whether the main timeline's top is the start of the message.
+fn at_top(view: &Entity<Workspace>, cx: &mut VisualTestContext, message_id: &str) -> bool {
+    view.read_with(cx, |this, _| {
+        let timeline = this.timeline.as_ref().unwrap();
+        let top = timeline.list.logical_scroll_top();
+        Some(top.item_ix) == timeline.row_of(message_id) && top.offset_in_item == px(0.)
+    })
+}
+
+#[gpui_kit::test]
+fn a_thread_opened_from_a_list_scrolls_its_parent_to_the_top(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let mut last = None;
+    for i in 0..60 {
+        last = Some(
+            rt.store()
+                .agent_post_main(&channel, &format!("前 {i}"), false, last.as_deref())
+                .unwrap()
+                .message_id,
+        );
+    }
+    let parent = rt.store().user_post_main(&channel, "親").unwrap();
+    rt.store()
+        .user_reply(&channel, &parent.message_id, "返信")
+        .unwrap();
+    let mut last = parent.message_id.clone();
+    for i in 0..30 {
+        last = rt
+            .store()
+            .agent_post_main(&channel, &format!("続き {i}"), false, Some(&last))
+            .unwrap()
+            .message_id;
+    }
+    rt.store()
+        .mark_read(
+            Scope::Main {
+                channel_id: &channel,
+            },
+            &last,
+        )
+        .unwrap();
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, _| window.activate_window());
+    settle(cx);
+    // Two rows above the parent at the top: the parent is already in view.
+    view.read_with(cx, |this, _| {
+        let timeline = this.timeline.as_ref().unwrap();
+        let row = timeline.row_of(&parent.message_id).unwrap();
+        timeline.list.scroll_to(ListOffset {
+            item_ix: row - 2,
+            offset_in_item: px(0.),
+        });
+    });
+    settle(cx);
+    view.read_with(cx, |this, _| {
+        let timeline = this.timeline.as_ref().unwrap();
+        let viewport = timeline.list.viewport_bounds();
+        let row = timeline.row_of(&parent.message_id).unwrap();
+        let bounds = timeline
+            .list
+            .bounds_for_item(row)
+            .expect("the parent is laid out");
+        assert!(bounds.top() > viewport.top() && bounds.bottom() <= viewport.bottom());
+    });
+    assert!(!at_top(&view, cx, &parent.message_id));
+
+    view.update_in(cx, |this, window, cx| {
+        this.open_unresolved(window, cx);
+    });
+    click(cx, "unresolved-0");
+    assert!(at_top(&view, cx, &parent.message_id));
+    settle(cx);
+    assert!(at_top(&view, cx, &parent.message_id));
+    view.read_with(cx, |this, _| assert!(this.pane.is_some()));
+}
+
+#[gpui_kit::test]
+fn a_channel_reopens_its_thread_with_the_parent_at_the_top_before_painting(
+    cx: &mut TestAppContext,
+) {
+    let rt = runtime();
+    let (shown, _, parent, _) = two_channels_with_a_thread(&rt);
+    let mut last = parent.message_id.clone();
+    for i in 0..60 {
+        last = rt
+            .store()
+            .agent_post_main(&shown, &format!("続き {i}"), false, Some(&last))
+            .unwrap()
+            .message_id;
+    }
+    let main = Scope::Main { channel_id: &shown };
+    rt.store().mark_read(main, &last).unwrap();
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, _| window.activate_window());
+    settle(cx);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    settle(cx);
+    assert!(!at_top(&view, cx, &parent.message_id));
+
+    click(cx, "channel-row-1");
+    settle(cx);
+    click(cx, "channel-row-0");
+    // Already in place before the first frame of the returned channel.
+    assert!(at_top(&view, cx, &parent.message_id));
+    settle(cx);
+    assert!(at_top(&view, cx, &parent.message_id));
 }

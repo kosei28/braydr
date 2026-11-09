@@ -206,12 +206,15 @@ impl Timeline {
         read::newest_seen(&refs, f32::from(viewport.bottom()) + BOTTOM_TOLERANCE).map(str::to_owned)
     }
 
+    pub fn row_of(&self, message_id: &str) -> Option<usize> {
+        self.rows.iter().position(
+            |row| matches!(row, Row::Message(message, _) if message.message_id == message_id),
+        )
+    }
+
     /// Scrolls so the message is at the top of the view.
     pub fn reveal(&self, message_id: &str) {
-        let row = self.rows.iter().position(
-            |row| matches!(row, Row::Message(message, _) if message.message_id == message_id),
-        );
-        if let Some(item_ix) = row {
+        if let Some(item_ix) = self.row_of(message_id) {
             self.list.scroll_to(ListOffset {
                 item_ix,
                 offset_in_item: px(0.),

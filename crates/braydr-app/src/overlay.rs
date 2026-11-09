@@ -661,6 +661,7 @@ impl Workspace {
             rows = rows.child(
                 div()
                     .id(("unresolved", ix))
+                    .debug_selector(move || format!("unresolved-{ix}"))
                     .px(px(10.))
                     .py(px(8.))
                     .flex()
@@ -671,7 +672,7 @@ impl Workspace {
                     .hover(|style| style.bg(theme::tint()))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.close_overlay(window, cx);
-                        this.open_thread(parent.clone(), window, cx);
+                        this.open_thread_revealed(parent.clone(), window, cx);
                     }))
                     .child(
                         div()
@@ -1054,7 +1055,7 @@ impl Workspace {
             OwnedScope::Thread(thread_id) => {
                 let thread = self.rt.store().thread(&message.channel_id, &thread_id);
                 if let Ok(thread) = thread {
-                    self.open_thread(thread.parent_message, window, cx);
+                    self.open_thread_revealed(thread.parent_message, window, cx);
                     if let Some(timeline) = self.pane.as_ref().and_then(|p| p.timeline.as_ref()) {
                         timeline.reveal(&message.message_id);
                     }

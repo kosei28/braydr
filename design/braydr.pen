@@ -1,5 +1,5 @@
 {
-  "version": "2.21",
+  "version": "2.22",
   "children": [
     {
       "type": "text",
@@ -715,7 +715,8 @@
                               "id": "FDVfj",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -966,6 +967,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "mgFSs",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "y112e",
                               "name": "Bubble",
@@ -1044,7 +1057,8 @@
                                       "id": "x7fr3T",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -1252,7 +1266,7 @@
                                   "id": "gzUqR",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -3043,6 +3057,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "sS6UA",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 54
+                            },
+                            {
                               "type": "frame",
                               "id": "M1JGpK",
                               "name": "Body",
@@ -4164,6 +4190,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "cOJPY",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 54
+                            },
+                            {
                               "type": "frame",
                               "id": "RJ4QG",
                               "name": "Body",
@@ -4241,7 +4279,8 @@
                                       "id": "cDgQQ",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -5738,6 +5777,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "B03SML",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 54
+                            },
+                            {
                               "type": "frame",
                               "id": "VWhcC",
                               "name": "Body",
@@ -5929,7 +5980,7 @@
                                   "id": "V13Pv",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -7729,7 +7780,7 @@
                                   "id": "l6Wqtb",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -8002,7 +8053,7 @@
                   "fill": "$ink",
                   "textGrowth": "fixed-width",
                   "width": "fill_container",
-                  "content": "じゃあそれも対応して。",
+                  "content": "じゃあそれも validate に寄せて。",
                   "lineHeight": 1.5,
                   "fontFamily": "$sans",
                   "fontSize": 14,
@@ -9078,7 +9129,7 @@
                                   "id": "RC0up",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -9952,7 +10003,8 @@
                               "id": "M7VKD",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -10203,6 +10255,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "eMKzy",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "ujAsD",
                               "name": "Bubble",
@@ -10281,7 +10345,8 @@
                                       "id": "XmoKn",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -10489,7 +10554,7 @@
                                   "id": "q9wkVK",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -11493,7 +11558,7 @@
                   "id": "hjCKL",
                   "name": "Count",
                   "fill": "$ink-3",
-                  "content": "3件",
+                  "content": "4件",
                   "fontFamily": "$sans",
                   "fontSize": 12,
                   "fontWeight": "normal"
@@ -11593,6 +11658,80 @@
                 },
                 {
                   "type": "frame",
+                  "id": "xXSbz",
+                  "name": "Search Row",
+                  "width": "fill_container",
+                  "height": 38,
+                  "cornerRadius": 8,
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YiyuI",
+                      "name": "Excerpt",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "R1ASn",
+                          "name": "Before",
+                          "fill": "$ink",
+                          "content": "じゃあそれも ",
+                          "fontFamily": "$sans",
+                          "fontSize": 13.5,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Iyv1A",
+                          "name": "Match",
+                          "fill": "$match",
+                          "cornerRadius": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "T2a8W",
+                              "name": "Term",
+                              "fill": "$ink",
+                              "content": "validate",
+                              "fontFamily": "$sans",
+                              "fontSize": 13.5,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "LoV1U",
+                          "name": "After",
+                          "fill": "$ink",
+                          "content": " に寄せて。",
+                          "fontFamily": "$sans",
+                          "fontSize": 13.5,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "gMLjF",
+                      "name": "Time",
+                      "fill": "$ink-3",
+                      "content": "15:04",
+                      "fontFamily": "$sans",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "R76rN",
                   "name": "Search Row",
                   "width": "fill_container",
@@ -11617,7 +11756,7 @@
                           "id": "QVm0G",
                           "name": "Before",
                           "fill": "$ink",
-                          "content": "パスワード再設定画面は共通の ",
+                          "content": "…ード再設定画面にも同じ抜けがあります。共通の ",
                           "fontFamily": "$sans",
                           "fontSize": 13.5,
                           "fontWeight": "normal"
@@ -11746,6 +11885,1991 @@
       ]
     },
     {
+      "type": "frame",
+      "id": "Vs5v2",
+      "x": 4680,
+      "y": 1644,
+      "name": "08 検索結果",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$window",
+      "cornerRadius": 12,
+      "stroke": "#00000024",
+      "strokeWidth": 1,
+      "children": [
+        {
+          "type": "frame",
+          "id": "s4Ljk",
+          "name": "Sidebar",
+          "width": 240,
+          "height": "fill_container",
+          "layout": "vertical",
+          "padding": [
+            0,
+            10,
+            10,
+            10
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "q6pnO",
+              "name": "Titlebar",
+              "width": "fill_container",
+              "height": 60,
+              "padding": [
+                0,
+                4,
+                0,
+                8
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "BFS6r",
+                  "type": "ref",
+                  "ref": "iTQnr",
+                  "name": "Traffic Lights"
+                },
+                {
+                  "type": "icon",
+                  "id": "kvOeI",
+                  "name": "panel-left",
+                  "width": 16,
+                  "height": 16,
+                  "icon": "panel-left",
+                  "library": "lucide",
+                  "fill": "$ink-3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RxaIu",
+              "name": "Row 未読",
+              "width": "fill_container",
+              "height": 30,
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Vrt3m",
+                  "name": "Glyph",
+                  "width": 16,
+                  "height": 16,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "dbY8i",
+                      "name": "inbox",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "inbox",
+                      "library": "lucide",
+                      "fill": "$ink-2"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Of0px",
+                  "name": "未読",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "未読",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "id": "XpieJ",
+                  "type": "ref",
+                  "ref": "ewmx5",
+                  "name": "Unread"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "PhkCv",
+              "name": "Spacer",
+              "width": "fill_container",
+              "height": 8
+            },
+            {
+              "type": "frame",
+              "id": "KUb4Q",
+              "name": "Section チャンネル",
+              "width": "fill_container",
+              "height": 24,
+              "padding": [
+                0,
+                8
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "H7IvF",
+                  "name": "チャンネル",
+                  "fill": "$ink-3",
+                  "content": "チャンネル",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                },
+                {
+                  "type": "icon",
+                  "id": "JVHKk",
+                  "name": "plus",
+                  "width": 15,
+                  "height": 15,
+                  "icon": "plus",
+                  "library": "lucide",
+                  "fill": "$ink-3"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "RcNrE",
+              "name": "Row ログイン修正",
+              "width": "fill_container",
+              "height": 30,
+              "fill": "$selected",
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "ZAdos",
+                  "type": "ref",
+                  "ref": "qY6hW",
+                  "name": "Session"
+                },
+                {
+                  "type": "text",
+                  "id": "dgPsA",
+                  "name": "ログイン修正",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "ログイン修正",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "XnZIx",
+                  "name": "Unresolved Count",
+                  "fill": "$ink-3",
+                  "content": "2",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OHG85",
+              "name": "Row 決済APIリファクタ",
+              "width": "fill_container",
+              "height": 30,
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "xdu1F",
+                  "name": "Unread",
+                  "width": 16,
+                  "height": 16,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "O3gDGz",
+                      "type": "ref",
+                      "ref": "ewmx5",
+                      "name": "Dot"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "a24d4o",
+                  "name": "決済APIリファクタ",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "決済APIリファクタ",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "kg344",
+                  "name": "Unresolved Count",
+                  "fill": "$ink-3",
+                  "content": "2",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "j2UL8",
+              "name": "Row E2E安定化",
+              "width": "fill_container",
+              "height": 30,
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GqJ3M",
+                  "name": "Unread",
+                  "width": 16,
+                  "height": 16,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "Ntaae",
+                      "type": "ref",
+                      "ref": "ewmx5",
+                      "name": "Dot"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "nLkGB",
+                  "name": "E2E安定化",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "E2E安定化",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "mlaYs",
+                  "name": "Unresolved Count",
+                  "fill": "$ink-3",
+                  "content": "2",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "JMz9V",
+              "name": "Row ドキュメント整備",
+              "width": "fill_container",
+              "height": 30,
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "WoXdT",
+                  "type": "ref",
+                  "ref": "qY6hW",
+                  "name": "Session"
+                },
+                {
+                  "type": "text",
+                  "id": "A7xeAl",
+                  "name": "ドキュメント整備",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "ドキュメント整備",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "ZNW09",
+                  "name": "Unresolved Count",
+                  "fill": "$ink-3",
+                  "content": "1",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "UBpXu",
+              "name": "Row 依存パッケージ更新",
+              "width": "fill_container",
+              "height": 30,
+              "cornerRadius": 7,
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "wUMyR",
+                  "type": "ref",
+                  "ref": "LzrTp",
+                  "name": "Session"
+                },
+                {
+                  "type": "text",
+                  "id": "C76l0p",
+                  "name": "依存パッケージ更新",
+                  "fill": "$ink",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "依存パッケージ更新",
+                  "fontFamily": "$sans",
+                  "fontSize": 13,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "text",
+                  "id": "mfQMC",
+                  "name": "Unresolved Count",
+                  "fill": "$ink-3",
+                  "content": "1",
+                  "fontFamily": "$sans",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "RV3ak",
+          "name": "Sheets",
+          "width": "fill_container",
+          "height": "fill_container",
+          "gap": 8,
+          "padding": [
+            8,
+            8,
+            8,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "FWcYi",
+              "name": "Main Sheet",
+              "clip": true,
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$sheet",
+              "cornerRadius": 10,
+              "stroke": "$hairline",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "gnHdZ",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "height": 44,
+                  "padding": [
+                    0,
+                    12,
+                    0,
+                    20
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "jIe5V",
+                      "name": "Channel Menu",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "qQ3fq",
+                          "name": "ログイン修正",
+                          "fill": "$ink",
+                          "content": "ログイン修正",
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "KovNl",
+                          "name": "chevron-down",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-down",
+                          "library": "lucide",
+                          "fill": "$ink-3"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ycnte",
+                      "name": "Header Actions",
+                      "gap": 2,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "SFBJk",
+                          "name": "Open Threads",
+                          "height": 28,
+                          "fill": "#00000000",
+                          "cornerRadius": 7,
+                          "gap": 6,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "OLjbz",
+                              "type": "ref",
+                              "ref": "ewmx5",
+                              "name": "Unread",
+                              "enabled": false
+                            },
+                            {
+                              "type": "text",
+                              "id": "yJnwN",
+                              "name": "未解決",
+                              "fill": "$ink-2",
+                              "content": "未解決",
+                              "fontFamily": "$sans",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "A0DwC",
+                              "name": "2",
+                              "fill": "$ink-2",
+                              "content": "2",
+                              "fontFamily": "$sans",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "QqLNI",
+                          "name": "Search",
+                          "width": 28,
+                          "height": 28,
+                          "cornerRadius": 7,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "U8Sy4T",
+                              "name": "search",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "search",
+                              "library": "lucide",
+                              "fill": "$ink-2"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "W7KPuq",
+                  "name": "Column Wrap",
+                  "clip": true,
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    0,
+                    0,
+                    24,
+                    0
+                  ],
+                  "justifyContent": "end",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "lvFbM",
+                      "name": "Column",
+                      "width": 700,
+                      "layout": "vertical",
+                      "gap": 20,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "wUq8Y",
+                          "name": "Date",
+                          "width": "fill_container",
+                          "justifyContent": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "sFnko",
+                              "name": "今日",
+                              "fill": "$ink-3",
+                              "content": "今日",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "XidUI",
+                          "name": "User Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "S72N1F",
+                              "name": "Bubble",
+                              "fill": "$ink",
+                              "cornerRadius": 14,
+                              "padding": [
+                                9,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "VuH86",
+                                  "name": "Text",
+                                  "fill": "#FFFFFF",
+                                  "textGrowth": "fixed-width",
+                                  "width": 400,
+                                  "content": "ログイン画面のバリデーションを直して。メールアドレスが空でも送信できてしまう。",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "mKEK0",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "n9G6P",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:02",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vYJMb",
+                          "name": "Agent Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "cHErK",
+                              "name": "Body",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "ZVcgm",
+                                  "name": "Text",
+                                  "fill": "$ink",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "送信前の必須チェックが抜けていました。LoginForm にメールとパスワードの検証を追加しました。",
+                                  "lineHeight": 1.65,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RNWnO",
+                                  "name": "Code",
+                                  "clip": true,
+                                  "width": "fill_container",
+                                  "fill": "$tint",
+                                  "cornerRadius": 8,
+                                  "padding": [
+                                    10,
+                                    14
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gTPNl",
+                                      "name": "Code Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "- if (password.length === 0) return\n+ const errors = validate({ email, password })\n+ if (errors.length > 0) return setErrors(errors)",
+                                      "lineHeight": 1.6,
+                                      "fontFamily": "$mono",
+                                      "fontSize": 12.5,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "r8FgG2",
+                                  "name": "Text",
+                                  "fill": "$ink",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "単体テスト 14 件がすべて通過しています。",
+                                  "lineHeight": 1.65,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Rgupg",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "EGRHO",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:06",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Zqibv",
+                          "name": "User Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "amK6a",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
+                              "type": "frame",
+                              "id": "wUrqS",
+                              "name": "Bubble",
+                              "fill": "$ink",
+                              "cornerRadius": 14,
+                              "padding": [
+                                9,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "ZxZh4",
+                                  "name": "Text",
+                                  "fill": "#FFFFFF",
+                                  "content": "エラーの文言、英語のままになっていない？",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "i6Ot3",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "BxxrM",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:20",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "R5wep",
+                                  "name": "Thread Link",
+                                  "height": 26,
+                                  "fill": "$accent-tint",
+                                  "cornerRadius": 8,
+                                  "gap": 6,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "JgUMx",
+                                      "name": "4件の返信",
+                                      "fill": "$accent",
+                                      "content": "4件の返信",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Y1kTMg",
+                                      "name": "15:12",
+                                      "fill": "$accent-soft",
+                                      "content": "15:12",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "id": "htIIv",
+                                      "type": "ref",
+                                      "ref": "ewmx5",
+                                      "name": "Unread",
+                                      "enabled": false
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sISWL",
+                          "name": "Agent Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "QzVV0",
+                              "name": "Body",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "O1TtcL",
+                                  "name": "Text",
+                                  "fill": "$ink",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "セッション切れの判定も同じ箇所にあったので確認しました。現状の挙動は正しく、変更は不要です。",
+                                  "lineHeight": 1.65,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "lklaV",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "iZkk8",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:41",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PDFO6",
+                                  "name": "Thread Link",
+                                  "height": 26,
+                                  "fill": "$tint",
+                                  "cornerRadius": 8,
+                                  "gap": 6,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "SzP3t",
+                                      "name": "3件の返信",
+                                      "fill": "$ink",
+                                      "content": "3件の返信",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "abQ6L",
+                                      "name": "14:50",
+                                      "fill": "$ink-3",
+                                      "content": "14:50",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fF1OT",
+                          "name": "Unread Divider",
+                          "width": "fill_container",
+                          "gap": 10,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "MwvsG",
+                              "name": "Line",
+                              "width": "fill_container",
+                              "height": 1,
+                              "fill": "#F08C0050"
+                            },
+                            {
+                              "type": "text",
+                              "id": "AzmvT",
+                              "name": "ここから未読",
+                              "fill": "$unread-text",
+                              "content": "ここから未読",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "dlO6G",
+                              "name": "Line",
+                              "width": "fill_container",
+                              "height": 1,
+                              "fill": "#F08C0050"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "T2v9q",
+                          "name": "Agent Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 10,
+                              "id": "O9pYz",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": -7,
+                              "name": "Search Highlight",
+                              "fill": "$match",
+                              "width": 720,
+                              "height": 60
+                            },
+                            {
+                              "type": "frame",
+                              "id": "iWIXA",
+                              "name": "Body",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 10,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "LSHiY",
+                                  "name": "Text",
+                                  "fill": "$ink",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "パスワード再設定画面にも同じ抜けがあります。共通の validate に寄せられます。",
+                                  "lineHeight": 1.65,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "A3HSGf",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "a8lL68",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:58",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ztQrI",
+                          "name": "User Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "i87tdT",
+                              "name": "Bubble",
+                              "fill": "$ink",
+                              "cornerRadius": 14,
+                              "padding": [
+                                9,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "kFPbS",
+                                  "name": "Text",
+                                  "fill": "#FFFFFF",
+                                  "content": "じゃあそれも validate に寄せて。",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "R85YHW",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "aWtCj",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "15:04",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RGowr",
+                                  "name": "Thread Link",
+                                  "height": 26,
+                                  "fill": "$accent-tint",
+                                  "cornerRadius": 8,
+                                  "gap": 6,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "MG2tE",
+                                      "name": "1件の返信",
+                                      "fill": "$accent",
+                                      "content": "1件の返信",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "L5BfA",
+                                      "name": "15:08",
+                                      "fill": "$accent-soft",
+                                      "content": "15:08",
+                                      "fontFamily": "$sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "nyqAE",
+                  "name": "Column Wrap",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    0,
+                    0,
+                    16,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "p0jy3w",
+                      "name": "Column",
+                      "width": 700,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "gixTb",
+                          "name": "Composer",
+                          "width": "fill_container",
+                          "fill": "$sheet",
+                          "cornerRadius": 12,
+                          "stroke": "#00000022",
+                          "strokeWidth": 1,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#0000000A",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 3
+                          },
+                          "gap": 10,
+                          "padding": [
+                            10,
+                            10,
+                            10,
+                            14
+                          ],
+                          "alignItems": "end",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "X7HKb",
+                              "name": "Input",
+                              "fill": "$ink-4",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "メッセージ",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "abpdK",
+                              "name": "Send",
+                              "width": 26,
+                              "height": 26,
+                              "fill": "$tint",
+                              "cornerRadius": 13,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "qCRjd",
+                                  "name": "arrow-up",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "arrow-up",
+                                  "library": "lucide",
+                                  "fill": "$ink-3"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "HJQAJ",
+              "name": "Thread Sheet",
+              "clip": true,
+              "width": 416,
+              "height": "fill_container",
+              "fill": "$sheet",
+              "cornerRadius": 10,
+              "stroke": "$hairline",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "CTIuU",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "height": 44,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "justifyContent": "end",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CoGWM",
+                      "name": "Actions",
+                      "gap": 4,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "p5hjv",
+                          "name": "Resolve",
+                          "height": 28,
+                          "cornerRadius": 7,
+                          "stroke": "#00000018",
+                          "strokeWidth": 1,
+                          "gap": 5,
+                          "padding": [
+                            0,
+                            10
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "WOGMk",
+                              "name": "check",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "check",
+                              "library": "lucide",
+                              "fill": "$ink"
+                            },
+                            {
+                              "type": "text",
+                              "id": "atdWp",
+                              "name": "解決",
+                              "fill": "$ink",
+                              "content": "解決",
+                              "fontFamily": "$sans",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "AYRmH",
+                          "name": "Close",
+                          "width": 28,
+                          "height": 28,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "iiJLa",
+                              "name": "x",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "x",
+                              "library": "lucide",
+                              "fill": "$ink-3"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "m8WJ2n",
+                  "name": "Replies",
+                  "clip": true,
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 22,
+                  "padding": [
+                    8,
+                    20,
+                    20,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "RqeWX",
+                      "name": "Parent",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "EI0XO",
+                          "name": "User Message",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 5,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "WnBjw",
+                              "name": "Bubble",
+                              "fill": "$ink",
+                              "cornerRadius": 14,
+                              "padding": [
+                                9,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "aDb8C",
+                                  "name": "Text",
+                                  "fill": "#FFFFFF",
+                                  "content": "エラーの文言、英語のままになっていない？",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "$sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "b09kyI",
+                              "name": "Footer",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "LaS0j",
+                                  "name": "Time",
+                                  "fill": "$ink-3",
+                                  "content": "14:20",
+                                  "fontFamily": "$sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FQQYl",
+                      "name": "Agent Message",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "rYiJh",
+                          "name": "Body",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "NdcpE",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "3 箇所が英語のままでした。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "csmhM",
+                              "name": "List",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "GMO7X",
+                                  "name": "Item",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    0,
+                                    0,
+                                    2
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "r1FFt",
+                                      "name": "Bullet Slot",
+                                      "width": 12,
+                                      "height": 22,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "ellipse",
+                                          "id": "NjHrc",
+                                          "name": "Bullet",
+                                          "fill": "$ink-3",
+                                          "width": 4,
+                                          "height": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "fMhLr",
+                                      "name": "Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Email is required",
+                                      "lineHeight": 1.65,
+                                      "fontFamily": "$sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "ktICp",
+                                  "name": "Item",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    0,
+                                    0,
+                                    2
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "r7BKl",
+                                      "name": "Bullet Slot",
+                                      "width": 12,
+                                      "height": 22,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "ellipse",
+                                          "id": "wyAi4",
+                                          "name": "Bullet",
+                                          "fill": "$ink-3",
+                                          "width": 4,
+                                          "height": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "W2n7J",
+                                      "name": "Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Password is required",
+                                      "lineHeight": 1.65,
+                                      "fontFamily": "$sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "tQdoz",
+                                  "name": "Item",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    0,
+                                    0,
+                                    2
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "wVUhc",
+                                      "name": "Bullet Slot",
+                                      "width": 12,
+                                      "height": 22,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "ellipse",
+                                          "id": "AwFP0",
+                                          "name": "Bullet",
+                                          "fill": "$ink-3",
+                                          "width": 4,
+                                          "height": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "XMlLe",
+                                      "name": "Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Invalid email format",
+                                      "lineHeight": 1.65,
+                                      "fontFamily": "$sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ra8lI",
+                          "name": "Footer",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "JpBdN",
+                              "name": "Time",
+                              "fill": "$ink-3",
+                              "content": "14:22",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZPamH",
+                      "name": "User Message",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "y2YwD",
+                          "name": "Bubble",
+                          "fill": "$ink",
+                          "cornerRadius": 14,
+                          "padding": [
+                            9,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "OaKiY",
+                              "name": "Text",
+                              "fill": "#FFFFFF",
+                              "content": "日本語にして。文言はこちらで確認する。",
+                              "lineHeight": 1.6,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "bXLIZ",
+                          "name": "Footer",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "JRoVt",
+                              "name": "Time",
+                              "fill": "$ink-3",
+                              "content": "14:30",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dcJaA",
+                      "name": "Agent Message",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "a1GJSE",
+                          "name": "Body",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "s0Piyb",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "翻訳キーに置き換えました。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "W6PDH",
+                          "name": "Footer",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "ITe9Q",
+                              "name": "Time",
+                              "fill": "$ink-3",
+                              "content": "14:44",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "vsEmQ",
+                      "name": "Unread Divider",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "iP24B",
+                          "name": "Line",
+                          "width": "fill_container",
+                          "height": 1,
+                          "fill": "#F08C0050"
+                        },
+                        {
+                          "type": "text",
+                          "id": "cIUmT",
+                          "name": "ここから未読",
+                          "fill": "$unread-text",
+                          "content": "ここから未読",
+                          "fontFamily": "$sans",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "M6AAbg",
+                          "name": "Line",
+                          "width": "fill_container",
+                          "height": 1,
+                          "fill": "#F08C0050"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "LoqaW",
+                      "name": "Agent Message",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 5,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "zmky2",
+                          "name": "Body",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 10,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "MDH8I",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "形式エラーの文言だけ候補が 2 つあります。どちらにしますか？",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "AsAIU",
+                              "name": "List",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "HqVnT",
+                                  "name": "Item",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    0,
+                                    0,
+                                    2
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "iMsbB",
+                                      "name": "Bullet Slot",
+                                      "width": 12,
+                                      "height": 22,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "ellipse",
+                                          "id": "j8qYl",
+                                          "name": "Bullet",
+                                          "fill": "$ink-3",
+                                          "width": 4,
+                                          "height": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "m1fgUY",
+                                      "name": "Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "メールアドレスの形式が正しくありません",
+                                      "lineHeight": 1.65,
+                                      "fontFamily": "$sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "Hiul9",
+                                  "name": "Item",
+                                  "width": "fill_container",
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    0,
+                                    0,
+                                    2
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "s0oJr",
+                                      "name": "Bullet Slot",
+                                      "width": 12,
+                                      "height": 22,
+                                      "justifyContent": "center",
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "ellipse",
+                                          "id": "zRqT0",
+                                          "name": "Bullet",
+                                          "fill": "$ink-3",
+                                          "width": 4,
+                                          "height": 4
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "heZpf",
+                                      "name": "Text",
+                                      "fill": "$ink",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "メールアドレスを確認してください",
+                                      "lineHeight": 1.65,
+                                      "fontFamily": "$sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Auy0U",
+                          "name": "Footer",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Zfwcv",
+                              "name": "Time",
+                              "fill": "$ink-3",
+                              "content": "15:12",
+                              "fontFamily": "$sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "drwrL",
+                  "name": "Composer Wrap",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    16,
+                    16,
+                    16
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "vU1P1",
+                      "name": "Composer",
+                      "width": "fill_container",
+                      "fill": "$sheet",
+                      "cornerRadius": 12,
+                      "stroke": "#00000022",
+                      "strokeWidth": 1,
+                      "effect": {
+                        "type": "shadow",
+                        "shadowType": "outer",
+                        "color": "#0000000A",
+                        "offset": {
+                          "x": 0,
+                          "y": 1
+                        },
+                        "blur": 3
+                      },
+                      "gap": 10,
+                      "padding": [
+                        10,
+                        10,
+                        10,
+                        14
+                      ],
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "E17DB8",
+                          "name": "Input",
+                          "fill": "$ink-4",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "返信",
+                          "lineHeight": 1.65,
+                          "fontFamily": "$sans",
+                          "fontSize": 14,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "j5wkyG",
+                          "name": "Send",
+                          "width": 26,
+                          "height": 26,
+                          "fill": "$tint",
+                          "cornerRadius": 13,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "J0oXN",
+                              "name": "arrow-up",
+                              "width": 15,
+                              "height": 15,
+                              "icon": "arrow-up",
+                              "library": "lucide",
+                              "fill": "$ink-3"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
       "type": "text",
       "id": "QUwWa",
       "x": 0,
@@ -11762,7 +13886,7 @@
       "id": "ZcIXv",
       "x": 0,
       "y": 2832,
-      "name": "08 チャンネル作成",
+      "name": "09 チャンネル作成",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -12437,7 +14561,7 @@
       "id": "P2BSBv",
       "x": 1560,
       "y": 2832,
-      "name": "09 空のチャンネル",
+      "name": "10 空のチャンネル",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -13046,7 +15170,7 @@
       "id": "lcyec",
       "x": 3120,
       "y": 2832,
-      "name": "10 チャンネル名のメニュー",
+      "name": "11 チャンネル名のメニュー",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -13540,7 +15664,8 @@
                               "id": "g42DdS",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -13791,6 +15916,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "S4ryow",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "OyGe3",
                               "name": "Bubble",
@@ -13869,7 +16006,8 @@
                                       "id": "w1Y5x",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -14077,7 +16215,7 @@
                                   "id": "BPTLj",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -15209,7 +17347,7 @@
       "id": "a5HPhy",
       "x": 4680,
       "y": 2832,
-      "name": "11 チャンネル名の変更",
+      "name": "12 チャンネル名の変更",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -15703,7 +17841,8 @@
                               "id": "faf6n",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -15954,6 +18093,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "bZ0Wd",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "oXUzq",
                               "name": "Bubble",
@@ -16032,7 +18183,8 @@
                                       "id": "QULbR",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -16240,7 +18392,7 @@
                                   "id": "Wl2Mo",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -17319,7 +19471,7 @@
       "id": "gxkNa",
       "x": 6240,
       "y": 2832,
-      "name": "12 チャンネルの削除",
+      "name": "13 チャンネルの削除",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -17813,7 +19965,8 @@
                               "id": "hxzjd",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -18064,6 +20217,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "GL11a",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "mVGQ0",
                               "name": "Bubble",
@@ -18142,7 +20307,8 @@
                                       "id": "SgIxJ",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -18350,7 +20516,7 @@
                                   "id": "tM9Qs",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -19417,7 +21583,7 @@
       "id": "p04LPt",
       "x": 0,
       "y": 4020,
-      "name": "13 実行中",
+      "name": "14 実行中",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -19946,7 +22112,8 @@
                               "id": "jgMjX",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -20197,6 +22364,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "yaXVU",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "JcGdi",
                               "name": "Bubble",
@@ -20275,7 +22454,8 @@
                                       "id": "XWyQQ",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -20483,7 +22663,7 @@
                                   "id": "pm6dy",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -21434,7 +23614,7 @@
       "id": "zcqvL",
       "x": 1560,
       "y": 4020,
-      "name": "14 確認待ち",
+      "name": "15 確認待ち",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -22643,7 +24823,7 @@
       "id": "diTU2",
       "x": 3120,
       "y": 4020,
-      "name": "15 セッション停止",
+      "name": "16 セッション停止",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -23837,7 +26017,7 @@
       "id": "H3uZ9J",
       "x": 4680,
       "y": 4020,
-      "name": "16 新しいセッションの開始（生存中）",
+      "name": "17 新しいセッションの開始（生存中）",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -24331,7 +26511,8 @@
                               "id": "uv91Q",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -24582,6 +26763,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "ECtVo",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "fl7Th",
                               "name": "Bubble",
@@ -24660,7 +26853,8 @@
                                       "id": "y7bxWN",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -24868,7 +27062,7 @@
                                   "id": "PXjkv",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -26020,7 +28214,7 @@
       "id": "n1wAJ",
       "x": 6240,
       "y": 4020,
-      "name": "17 新しいセッションの開始（停止中）",
+      "name": "18 新しいセッションの開始（停止中）",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -27450,7 +29644,7 @@
       "id": "bV0r3",
       "x": 0,
       "y": 5208,
-      "name": "18 サイドバーを閉じた状態",
+      "name": "19 サイドバーを閉じた状態",
       "clip": true,
       "width": 1440,
       "height": 900,
@@ -27575,7 +29769,8 @@
                               "id": "Gh1fZ",
                               "type": "ref",
                               "ref": "ewmx5",
-                              "name": "Unread"
+                              "name": "Unread",
+                              "enabled": false
                             },
                             {
                               "type": "text",
@@ -27826,6 +30021,18 @@
                           "gap": 5,
                           "children": [
                             {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "q44m3w",
+                              "layoutPosition": "absolute",
+                              "x": -10,
+                              "y": 0,
+                              "name": "Open Bar",
+                              "fill": "$accent",
+                              "width": 2,
+                              "height": 71
+                            },
+                            {
                               "type": "frame",
                               "id": "zEurR",
                               "name": "Bubble",
@@ -27904,7 +30111,8 @@
                                       "id": "Chl4J",
                                       "type": "ref",
                                       "ref": "ewmx5",
-                                      "name": "Unread"
+                                      "name": "Unread",
+                                      "enabled": false
                                     }
                                   ]
                                 }
@@ -28112,7 +30320,7 @@
                                   "id": "yw7tu",
                                   "name": "Text",
                                   "fill": "#FFFFFF",
-                                  "content": "じゃあそれも対応して。",
+                                  "content": "じゃあそれも validate に寄せて。",
                                   "lineHeight": 1.6,
                                   "fontFamily": "$sans",
                                   "fontSize": 14,
@@ -29040,7 +31248,7 @@
       "id": "r6619",
       "x": 1560,
       "y": 5208,
-      "name": "19 設定",
+      "name": "20 設定",
       "clip": true,
       "width": 560,
       "fill": "$sheet",

@@ -352,7 +352,7 @@ impl Workspace {
         };
         let parent = self.rt.store().message(channel_id, parent_id);
         match parent {
-            Ok(parent) => self.open_thread(parent, window, cx),
+            Ok(parent) => self.open_thread_revealed(parent, window, cx),
             Err(error) => {
                 tracing::warn!(%error, "cannot reopen the thread");
                 self.open_threads.remove(channel_id);
@@ -550,6 +550,19 @@ impl Workspace {
             }
         }
         cx.notify();
+    }
+
+    /// Opens a thread from somewhere other than its parent, which is scrolled to the top.
+    pub fn open_thread_revealed(
+        &mut self,
+        parent: Message,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if let Some(timeline) = &self.timeline {
+            timeline.reveal(&parent.message_id);
+        }
+        self.open_thread(parent, window, cx);
     }
 
     pub fn open_thread(&mut self, parent: Message, window: &mut Window, cx: &mut Context<Self>) {
@@ -793,7 +806,7 @@ impl Workspace {
                 if self.selected.as_ref() != Some(&thread.channel_id) {
                     self.show_channel(thread.channel_id.clone(), false, window, cx);
                 }
-                self.open_thread(thread.parent_message, window, cx);
+                self.open_thread_revealed(thread.parent_message, window, cx);
             }
         }
         // The window may not be active yet, but the user just asked for this timeline.
@@ -1147,8 +1160,15 @@ impl Workspace {
                 })),
         );
         let highlighted = self.highlight.as_deref() == Some(message.message_id.as_str());
+        // The parent of the thread open in the right sheet, drafts included.
+        let open = is_main
+            && self
+                .pane
+                .as_ref()
+                .is_some_and(|pane| pane.parent.message_id == message.message_id);
         let mut row = div()
             .group(group)
+            .relative()
             .w_full()
             .px(px(MESSAGE_INSET_X))
             .py(px(MESSAGE_INSET_Y))
@@ -1156,6 +1176,16 @@ impl Workspace {
             .flex_col()
             .items_start()
             .gap(px(5.))
+            .children(open.then(|| {
+                div()
+                    .absolute()
+                    .left_0()
+                    .top(px(MESSAGE_INSET_Y))
+                    .bottom(px(MESSAGE_INSET_Y))
+                    .w(px(2.))
+                    .rounded(px(1.))
+                    .bg(theme::accent())
+            }))
             .child(body)
             .child(footer);
         if highlighted {
