@@ -17,6 +17,8 @@ use crate::workspace::Workspace;
 use crate::{theme, ui};
 
 const PAGE: u32 = 20;
+/// What floating panels and dialogs keep clear on each side of the window.
+const INSET: f32 = 16.;
 
 pub struct UnresolvedPanel {
     threads: Vec<(Thread, bool)>,
@@ -197,6 +199,8 @@ impl Workspace {
 
     pub fn open_unread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.release_focus(window, cx);
+        // The list takes the drawer's place rather than sitting in its shadow.
+        self.drawer_open = false;
         self.overlay = Some(Overlay::Unread(UnreadPanel {
             items: self.rt.store().unread_items().unwrap_or_default(),
             scroll: ScrollHandle::new(),
@@ -540,11 +544,25 @@ impl Workspace {
     }
 
     fn sheet_left(&self) -> f32 {
-        if self.sidebar_open {
+        if self.sidebar_docked() {
             self.shown.sidebar
         } else {
             8.
         }
+    }
+
+    /// A floating panel's left edge and width: where and as wide as it would like, but inside
+    /// the window with `INSET` to spare on both sides.
+    fn fit_x(&self, left: f32, width: f32) -> (f32, f32) {
+        let window = self.shown.window;
+        let width = width.min(window - 2. * INSET);
+        (left.min(window - INSET - width).max(INSET), width)
+    }
+
+    /// The most a floating list can take below `top` and still keep `INSET` above the
+    /// window's bottom edge.
+    fn fit_h(&self, top: f32, height: f32) -> f32 {
+        height.min(self.window_height - top - INSET)
     }
 
     fn render_menu(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -617,13 +635,16 @@ impl Workspace {
                     this.copy("menu-attach".to_owned(), copied.clone(), cx);
                 }))
         });
+        // Under the name, which follows the toggle when the sidebar is not beside the sheets.
+        let (left, width) = self.fit_x(
+            self.sheet_left() + 12. + if self.sidebar_docked() { 0. } else { 64. },
+            260.,
+        );
         ui::floating(10.)
             .absolute()
             .top(px(48.))
-            .left(px(self.sheet_left()
-                + 12.
-                + if self.sidebar_open { 0. } else { 64. }))
-            .w(px(260.))
+            .left(px(left))
+            .w(px(width))
             .p(px(4.))
             .flex()
             .flex_col()
@@ -698,24 +719,27 @@ impl Workspace {
             );
         }
         // Under the button, which has the search icon on its right.
-        let right = 8. + if self.pane.is_some() { 424. } else { 0. } + 12. + 32.;
+        let beside = self.pane.is_some() && !self.shown.thread_over;
+        let right = 8. + if beside { self.shown.thread + 8. } else { 0. } + 12. + 32.;
+        let (left, width) = self.fit_x(self.shown.window - right - 408., 408.);
+        let high = self.fit_h(48., 560.);
         ui::floating(14.)
             .absolute()
             .top(px(48.))
-            .right(px(right))
-            .w(px(408.))
+            .left(px(left))
+            .w(px(width))
             .min_h(px(44.))
-            .max_h(px(560.))
+            .max_h(px(high))
             .overflow_hidden()
             .occlude()
             .child(
                 div()
                     .relative()
-                    .max_h(px(560.))
+                    .max_h(px(high))
                     .child(
                         div()
                             .id("unresolved-list")
-                            .max_h(px(560.))
+                            .max_h(px(high))
                             .overflow_y_scroll()
                             .track_scroll(&panel.scroll)
                             .child(rows),
@@ -787,23 +811,25 @@ impl Workspace {
             );
         }
         // Beside the sidebar, level with the row that opened it.
+        let (left, width) = self.fit_x(self.sheet_left() + 8., 408.);
+        let high = self.fit_h(60., 560.);
         ui::floating(14.)
             .absolute()
             .top(px(60.))
-            .left(px(self.sheet_left() + 8.))
-            .w(px(408.))
+            .left(px(left))
+            .w(px(width))
             .min_h(px(44.))
-            .max_h(px(560.))
+            .max_h(px(high))
             .overflow_hidden()
             .occlude()
             .child(
                 div()
                     .relative()
-                    .max_h(px(560.))
+                    .max_h(px(high))
                     .child(
                         div()
                             .id("unread-list")
-                            .max_h(px(560.))
+                            .max_h(px(high))
                             .overflow_y_scroll()
                             .track_scroll(&panel.scroll)
                             .child(rows),
@@ -867,16 +893,20 @@ impl Workspace {
             );
         }
         let has_query = !panel.query.is_empty();
+        // Below the field, which is 48 high under the panel's top at 56.
+        let high = self.fit_h(56. + 49., 420.);
         div()
             .absolute()
             .top(px(56.))
             .left_0()
             .right_0()
+            .px(px(INSET))
             .flex()
             .justify_center()
             .child(
                 ui::floating(14.)
-                    .w(px(600.))
+                    .w_full()
+                    .max_w(px(600.))
                     .overflow_hidden()
                     .occlude()
                     .child(
@@ -910,11 +940,11 @@ impl Workspace {
                             .border_t_1()
                             .border_color(theme::hairline())
                             .relative()
-                            .max_h(px(420.))
+                            .max_h(px(high))
                             .child(
                                 div()
                                     .id("search-results")
-                                    .max_h(px(420.))
+                                    .max_h(px(high))
                                     .overflow_y_scroll()
                                     .track_scroll(&panel.scroll)
                                     .child(rows),
@@ -930,7 +960,8 @@ impl Workspace {
 
     fn dialog(&self, width: f32) -> Div {
         ui::floating(14.)
-            .w(px(width))
+            .w_full()
+            .max_w(px(width))
             .p(px(20.))
             .flex()
             .flex_col()
@@ -1087,6 +1118,7 @@ fn centered(dialog: Div) -> AnyElement {
     div()
         .absolute()
         .inset_0()
+        .p(px(INSET))
         .flex()
         .items_center()
         .justify_center()

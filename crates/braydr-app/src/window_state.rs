@@ -6,7 +6,9 @@ use crate::timeline::Rt;
 
 const KEY: &str = "main_window";
 const DEFAULT_SIZE: (f32, f32) = (1440., 900.);
-const MIN_SIZE: (f32, f32) = (640., 480.);
+/// The smallest window nothing breaks in: the main sheet at its 360 minimum with its margins,
+/// and room for the header's name and marks, and the timeline with a banner and the composer.
+pub const MIN_SIZE: (f32, f32) = (400., 480.);
 /// How much of the window must be on screen for the user to get hold of it.
 const MIN_VISIBLE: f32 = 100.;
 

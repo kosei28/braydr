@@ -1151,3 +1151,85 @@ fn only_the_last_row_keeps_room_above_the_composer(cx: &mut TestAppContext) {
     assert_eq!(height(&view, cx, 2), first);
     assert_eq!(height(&view, cx, 3), second);
 }
+
+#[gpui_kit::test]
+fn a_narrow_window_keeps_the_sidebar_in_a_drawer(cx: &mut TestAppContext) {
+    let rt = runtime();
+    rt.store().create_channel("a", &launch()).unwrap();
+    rt.store().create_channel("b", &launch()).unwrap();
+    let (view, cx) = open(cx, &rt);
+    let first = view.read_with(cx, |this, _| this.selected.clone());
+    cx.simulate_resize(gpui_kit::size(px(600.), px(600.)));
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert!(this.shown.drawer && !this.drawer_open)
+    });
+    // Not beside the sheets: the rows are not drawn until the drawer comes out.
+    assert!(cx.debug_bounds("channel-row-1").is_none());
+    click(cx, "main-sidebar-toggle");
+    view.read_with(cx, |this, _| assert!(this.drawer_open));
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| assert!(!this.drawer_open));
+    // Choosing a channel puts the drawer away.
+    click(cx, "main-sidebar-toggle");
+    click(cx, "channel-row-1");
+    view.read_with(cx, |this, _| {
+        assert_ne!(this.selected, first);
+        assert!(!this.drawer_open);
+    });
+    // A wide window brings the sidebar back beside the sheets, not as a drawer.
+    click(cx, "main-sidebar-toggle");
+    cx.simulate_resize(gpui_kit::size(px(1200.), px(600.)));
+    cx.run_until_parked();
+    view.read_with(cx, |this, _| {
+        assert!(!this.shown.drawer && !this.drawer_open && this.sidebar_docked());
+    });
+}
+
+#[gpui_kit::test]
+fn a_thread_covering_the_main_sheet_leaves_it_unread(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (shown, _, parent, _) = two_channels_with_a_thread(&rt);
+    let main = Scope::Main { channel_id: &shown };
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, _| window.activate_window());
+    cx.simulate_resize(gpui_kit::size(px(700.), px(600.)));
+    settle(cx);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    settle(cx);
+    view.read_with(cx, |this, _| assert!(this.shown.thread_over));
+    rt.store()
+        .agent_post_main(&shown, "裏で届いた", false, Some(&parent.message_id))
+        .unwrap();
+    poll(cx);
+    settle(cx);
+    assert!(rt.store().has_unread(main).unwrap());
+    // Side by side again, the main sheet is in view and read.
+    cx.simulate_resize(gpui_kit::size(px(1400.), px(600.)));
+    settle(cx);
+    view.read_with(cx, |this, _| assert!(!this.shown.thread_over));
+    assert!(!rt.store().has_unread(main).unwrap());
+}
+
+#[gpui_kit::test]
+fn the_drawer_opens_over_a_thread_covering_the_main_sheet(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let (_, _, parent, _) = two_channels_with_a_thread(&rt);
+    let (view, cx) = open(cx, &rt);
+    cx.simulate_resize(gpui_kit::size(px(600.), px(600.)));
+    settle(cx);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    settle(cx);
+    view.read_with(cx, |this, _| {
+        assert!(this.shown.thread_over && this.shown.drawer)
+    });
+    click(cx, "thread-sidebar-toggle");
+    settle(cx);
+    view.read_with(cx, |this, _| assert!(this.drawer_open));
+    assert!(cx.debug_bounds("channel-row-1").is_some());
+}

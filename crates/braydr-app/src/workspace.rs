@@ -21,7 +21,7 @@ use gpui_kit::{
 };
 
 use crate::overlay::{LaunchFields, Overlay};
-use crate::pane_widths::{Edge, Frame, PaneWidths};
+use crate::pane_widths::{Edge, Frame, Layout, PaneWidths};
 use crate::timeline::{OwnedScope, Row, Rt, ThreadLink, Timeline};
 use crate::{settings, theme, ui, window_state};
 
@@ -169,10 +169,15 @@ pub struct Workspace {
     open_threads: HashMap<String, String>,
     pub create: Option<CreateForm>,
     pub overlay: Option<Overlay>,
+    /// Whether the sidebar sits beside the sheets in a wide window.
     pub sidebar_open: bool,
+    /// Whether the sidebar is out over the sheets in a narrow window.
+    pub drawer_open: bool,
     pub widths: PaneWidths,
     /// `widths` fitted to the window, as last drawn.
-    pub shown: PaneWidths,
+    pub shown: Layout,
+    /// The window's height, as last drawn.
+    pub window_height: f32,
     resize: Option<Resize>,
     pub pointer_down: bool,
     bounds_changed: bool,
@@ -203,8 +208,14 @@ impl Workspace {
             create: None,
             overlay: None,
             sidebar_open: true,
+            drawer_open: false,
             widths,
-            shown: widths,
+            shown: widths.layout(Frame {
+                window: f32::from(window.viewport_size().width),
+                sidebar_open: true,
+                thread_open: false,
+            }),
+            window_height: f32::from(window.viewport_size().height),
             resize: None,
             pointer_down: false,
             bounds_changed: false,
@@ -370,6 +381,7 @@ impl Workspace {
             .filter(|pane| pane.channel_id == channel_id);
         self.create = None;
         self.overlay = None;
+        self.drawer_open = false;
         self.send_failed = false;
         self.timeline = Some(Timeline::open(
             &self.rt,
@@ -508,6 +520,7 @@ impl Workspace {
     }
 
     pub fn start_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.drawer_open = false;
         let name = cx.new(|cx| InputState::new(window, cx).placeholder("チャンネル名"));
         cx.subscribe(&name, |_, _, _: &InputEvent, cx| cx.notify())
             .detach();
@@ -711,10 +724,16 @@ impl Workspace {
         }
     }
 
-    /// Esc closes what floats on top, then the creation form. Returns whether it closed anything.
+    /// Esc closes what floats on top, then the drawer, then the creation form. Returns whether
+    /// it closed anything.
     fn dismiss(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.overlay.is_some() {
             self.close_overlay(window, cx);
+            return true;
+        }
+        if self.drawer_open {
+            self.drawer_open = false;
+            cx.notify();
             return true;
         }
         // The creation form has nothing to go back to without a channel.
@@ -769,14 +788,18 @@ impl Workspace {
 
     // Native notifications (`docs/product-spec.md` 4.8)
 
+    /// The timelines the user can see. A thread sheet laid over the main sheet hides it.
+    fn on_screen(&self) -> impl Iterator<Item = &Timeline> {
+        let pane = self.pane.as_ref().and_then(|p| p.timeline.as_ref());
+        let main = self
+            .timeline
+            .as_ref()
+            .filter(|_| pane.is_none() || !self.shown.thread_over);
+        main.into_iter().chain(pane)
+    }
+
     fn displayed(&self, scope: &OwnedScope) -> Option<&Timeline> {
-        [
-            self.timeline.as_ref(),
-            self.pane.as_ref().and_then(|p| p.timeline.as_ref()),
-        ]
-        .into_iter()
-        .flatten()
-        .find(|timeline| &timeline.scope == scope)
+        self.on_screen().find(|timeline| &timeline.scope == scope)
     }
 
     fn view_of(&self, scope: &OwnedScope, window: &Window) -> View {
@@ -825,14 +848,10 @@ impl Workspace {
     }
 
     fn dismiss_reached(&mut self, window: &Window, cx: &mut Context<Self>) {
-        let scopes: Vec<OwnedScope> = [
-            self.timeline.as_ref(),
-            self.pane.as_ref().and_then(|p| p.timeline.as_ref()),
-        ]
-        .into_iter()
-        .flatten()
-        .map(|timeline| timeline.scope.clone())
-        .collect();
+        let scopes: Vec<OwnedScope> = self
+            .on_screen()
+            .map(|timeline| timeline.scope.clone())
+            .collect();
         for scope in scopes {
             let tag = notify::tag(scope.as_scope());
             if self.notified.contains(&tag)
@@ -968,7 +987,7 @@ impl Workspace {
                     .items_center()
                     .justify_end()
                     .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
-                    .child(self.sidebar_toggle(cx)),
+                    .child(self.sidebar_toggle("sidebar-toggle", cx)),
             )
             .child(
                 div()
@@ -1024,13 +1043,25 @@ impl Workspace {
             .child(rows)
     }
 
-    fn sidebar_toggle(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        ui::icon_button("sidebar-toggle", "panel-left", theme::ink2())
+    /// Each place gets its own id: buttons that share one also share their click state, so a
+    /// hidden one can swallow the click.
+    fn sidebar_toggle(&self, id: &'static str, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        ui::icon_button(id, "panel-left", theme::ink2())
+            .debug_selector(move || id.to_owned())
             .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .on_click(cx.listener(|this, _, _, cx| {
-                this.sidebar_open = !this.sidebar_open;
+                if this.shown.drawer {
+                    this.drawer_open = !this.drawer_open;
+                } else {
+                    this.sidebar_open = !this.sidebar_open;
+                }
                 cx.notify();
             }))
+    }
+
+    /// Whether the sidebar sits beside the sheets, which then need no room for the toggle.
+    pub fn sidebar_docked(&self) -> bool {
+        self.sidebar_open && !self.shown.drawer
     }
 
     fn message_row(
@@ -1320,21 +1351,29 @@ impl Workspace {
         div()
             .h(px(44.))
             .flex_none()
-            .pl(px(if self.sidebar_open { 20. } else { 72. }))
+            .pl(px(if self.sidebar_docked() { 20. } else { 72. }))
             .pr(px(12.))
             .flex()
             .items_center()
             .justify_between()
+            .gap(px(8.))
             .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
             .child(
+                // The name gives way first in a narrow sheet.
                 div()
+                    .flex_1()
+                    .min_w_0()
                     .flex()
                     .items_center()
                     .gap(px(8.))
-                    .children((!self.sidebar_open).then(|| self.sidebar_toggle(cx)))
+                    .children(
+                        (!self.sidebar_docked())
+                            .then(|| self.sidebar_toggle("main-sidebar-toggle", cx)),
+                    )
                     .child(
                         div()
                             .id("channel-menu")
+                            .min_w_0()
                             .flex()
                             .items_center()
                             .gap(px(4.))
@@ -1343,16 +1382,23 @@ impl Workspace {
                             .on_click(cx.listener(|this, _, window, cx| this.open_menu(window, cx)))
                             .child(
                                 div()
+                                    .min_w_0()
+                                    .truncate()
                                     .text_size(px(14.))
                                     .font_weight(FontWeight::SEMIBOLD)
                                     .text_color(theme::ink())
                                     .child(row.channel.name.clone()),
                             )
-                            .child(ui::icon("chevron-down", 14., theme::ink3())),
+                            .child(div().flex_none().child(ui::icon(
+                                "chevron-down",
+                                14.,
+                                theme::ink3(),
+                            ))),
                     )
                     .children((row.stopped || row.blocked).then(|| {
                         div()
                             .flex()
+                            .flex_none()
                             .items_center()
                             .gap(px(6.))
                             .text_size(px(12.))
@@ -1394,6 +1440,7 @@ impl Workspace {
             .child(
                 div()
                     .flex()
+                    .flex_none()
                     .items_center()
                     .gap(px(4.))
                     .children((row.unresolved > 0).then(|| {
@@ -1497,6 +1544,7 @@ impl Workspace {
     }
 
     fn render_banner(&self, row: &ChannelRow, cx: &mut Context<Self>) -> Option<AnyElement> {
+        // In a narrow sheet the text wraps, and the action moves under it to the right.
         let base = |text: &'static str| {
             div()
                 .min_h(px(40.))
@@ -1504,18 +1552,20 @@ impl Workspace {
                 .pr(px(8.))
                 .py(px(5.))
                 .flex()
+                .flex_wrap()
                 .items_center()
-                .justify_between()
-                .gap(px(12.))
+                .gap_x(px(12.))
+                .gap_y(px(4.))
                 .rounded(px(10.))
                 .bg(theme::warn_tint())
                 .text_size(px(13.))
                 .text_color(theme::ink())
-                .child(text)
+                .child(div().flex_grow(1.).min_w_0().py(px(5.)).child(text))
         };
         let action = |id: &'static str, label: &'static str| {
             div()
                 .id(id)
+                .ml_auto()
                 .h(px(30.))
                 .px(px(12.))
                 .flex()
@@ -1560,8 +1610,10 @@ impl Workspace {
                 let copy_icon = self.copy_icon("banner-attach", theme::ink3());
                 div()
                     .id("attach-command")
+                    .ml_auto()
+                    .min_w_0()
+                    .h(px(30.))
                     .flex()
-                    .flex_none()
                     .items_center()
                     .gap(px(6.))
                     .px(px(6.))
@@ -1569,8 +1621,8 @@ impl Workspace {
                     .font_family(theme::MONO)
                     .text_size(px(12.))
                     .text_color(theme::ink2())
-                    .child(command)
-                    .child(copy_icon)
+                    .child(div().min_w_0().truncate().child(command))
+                    .child(div().flex_none().child(copy_icon))
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.copy("banner-attach".to_owned(), copied.clone(), cx);
                     }))
@@ -1594,10 +1646,12 @@ impl Workspace {
             .thread
             .as_ref()
             .is_some_and(|t| t.resolved_at.is_some());
+        // Laid over the main sheet, it takes over the main header's place by the traffic lights.
+        let toggle = self.shown.thread_over && !self.sidebar_docked();
         let header = div()
             .h(px(44.))
             .flex_none()
-            .pl(px(20.))
+            .pl(px(if toggle { 72. } else { 20. }))
             .pr(px(8.))
             .flex()
             .items_center()
@@ -1605,8 +1659,12 @@ impl Workspace {
             .on_mouse_down(MouseButton::Left, ui::title_bar_mouse_down)
             .child(
                 div()
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
                     .text_size(px(13.))
                     .text_color(theme::ink2())
+                    .children(toggle.then(|| self.sidebar_toggle("thread-sidebar-toggle", cx)))
                     .children(resolved.then_some("解決済み")),
             )
             .child(
@@ -1737,12 +1795,14 @@ impl Workspace {
             && !form.fields.command.read(cx).value().trim().is_empty();
         div()
             .size_full()
+            .px(px(24.))
             .flex()
             .items_center()
             .justify_center()
             .child(
                 div()
-                    .w(px(480.))
+                    .w_full()
+                    .max_w(px(480.))
                     .flex()
                     .flex_col()
                     .gap(px(10.))
@@ -1792,6 +1852,19 @@ impl Workspace {
                 .timer(Duration::from_millis(500))
                 .await;
             let _ = this.update_in(cx, |this, window, cx| {
+                // `WIDTHxHEIGHT`, which the window's minimum still bounds.
+                let size = std::env::var("BRAYDR_SCREENSHOT_SIZE")
+                    .ok()
+                    .and_then(|value| {
+                        let (width, height) = value.split_once('x')?;
+                        Some(gpui_kit::size(
+                            px(width.parse().ok()?),
+                            px(height.parse().ok()?),
+                        ))
+                    });
+                if let Some(size) = size {
+                    window.resize(size);
+                }
                 let threaded = this.timeline.as_ref().and_then(|timeline| {
                     timeline.rows.iter().find_map(|row| match row {
                         Row::Message(m, Some(_)) => Some(m.clone()),
@@ -1853,6 +1926,7 @@ impl Workspace {
                         }
                     }
                     "collapsed" => this.sidebar_open = false,
+                    "drawer" => this.drawer_open = true,
                     "search" => {
                         this.open_search(window, cx);
                         if let Some(Overlay::Search(panel)) = &this.overlay {
@@ -1964,6 +2038,42 @@ impl Workspace {
             .hover(|grip| grip.bg(theme::hairline()))
     }
 
+    /// The sidebar slid out over the sheets, which a click beside it puts away.
+    fn render_drawer(&self, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        div()
+            .absolute()
+            .inset_0()
+            .child(
+                div()
+                    .id("drawer-backdrop")
+                    .absolute()
+                    .inset_0()
+                    .bg(theme::dim())
+                    .occlude()
+                    .on_mouse_down(
+                        MouseButton::Left,
+                        cx.listener(|this, _, _, cx| {
+                            this.drawer_open = false;
+                            cx.notify();
+                        }),
+                    ),
+            )
+            .child(
+                div()
+                    .id("drawer")
+                    .absolute()
+                    .top_0()
+                    .bottom_0()
+                    .left_0()
+                    .bg(theme::window())
+                    .border_r_1()
+                    .border_color(theme::hairline())
+                    .shadow_lg()
+                    .occlude()
+                    .child(self.render_sidebar(cx)),
+            )
+    }
+
     /// Notices the release wherever it happens. A listener on the root would miss it when
     /// something occludes the root, and reading would then wait for the next click. The button
     /// can also come up outside the window, which the next move reveals.
@@ -2021,21 +2131,25 @@ impl Workspace {
 
 impl Render for Workspace {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.shown = self.widths.fitted(self.frame(window));
+        self.shown = self.widths.layout(self.frame(window));
+        self.window_height = f32::from(window.viewport_size().height);
+        if !self.shown.drawer {
+            self.drawer_open = false;
+        }
+        let docked = self.sidebar_docked();
         let main = self.render_main(window, cx);
         let pane = self.render_pane(window, cx);
+        let (beside, over) = if self.shown.thread_over {
+            (None, pane)
+        } else {
+            (pane, None)
+        };
         let overlay = self.render_overlay(cx);
         // Read positions depend on layout, so check them after the frame.
         cx.on_next_frame(window, |this, window, cx| {
             // While dragging (the scrollbar, usually) rows fly past unread. The release counts.
             if window.is_window_active() && !this.pointer_down {
-                for timeline in [
-                    this.timeline.as_ref(),
-                    this.pane.as_ref().and_then(|p| p.timeline.as_ref()),
-                ]
-                .into_iter()
-                .flatten()
-                {
+                for timeline in this.on_screen() {
                     timeline.track_read(&this.rt);
                 }
             }
@@ -2067,7 +2181,7 @@ impl Render for Workspace {
                 cx.stop_propagation();
             }))
             .child(self.render_pointer_watch(cx))
-            .children(self.sidebar_open.then(|| self.render_sidebar(cx)))
+            .children(docked.then(|| self.render_sidebar(cx)))
             .child(
                 div()
                     .flex_1()
@@ -2078,19 +2192,27 @@ impl Render for Workspace {
                     .pt(px(8.))
                     .pr(px(8.))
                     .pb(px(8.))
-                    .pl(px(if self.sidebar_open { 0. } else { 8. }))
+                    .pl(px(if docked { 0. } else { 8. }))
                     .child(main)
-                    .children(pane),
+                    .children(beside),
             )
+            // Over the main sheet, in its place. The main sheet stays laid out underneath, so it
+            // comes back as it was.
+            .children(over.map(|pane| {
+                div()
+                    .occlude()
+                    .absolute()
+                    .top(px(8.))
+                    .bottom(px(8.))
+                    .right(px(8.))
+                    .child(pane)
+            }))
             .children(
-                self.sidebar_open
-                    .then(|| self.render_edge(Edge::Sidebar, cx)),
-            )
-            .children(
-                self.pane
-                    .is_some()
+                (self.pane.is_some() && !self.shown.thread_over)
                     .then(|| self.render_edge(Edge::Thread, cx)),
             )
+            .children(self.drawer_open.then(|| self.render_drawer(cx)))
+            .children((docked || self.drawer_open).then(|| self.render_edge(Edge::Sidebar, cx)))
             .children(self.resize.is_some().then(|| self.render_resize_cover(cx)))
             .children(overlay)
     }

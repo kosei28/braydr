@@ -18,6 +18,9 @@ const THREAD: Range = Range {
 };
 /// The sheets' margin to the window's edge, and the gap between them.
 const MARGIN: f32 = 8.;
+/// Narrower than this, a sidebar beside the sheets would crowd the main sheet, so it slides
+/// over them as a drawer instead.
+pub const DRAWER_BELOW: f32 = 720.;
 
 struct Range {
     default: f32,
@@ -31,7 +34,7 @@ pub enum Edge {
     Thread,
 }
 
-/// What is on screen, which decides how much room the panes can have.
+/// What is open, which with the window's width decides how much room the panes can have.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Frame {
     pub window: f32,
@@ -39,7 +42,46 @@ pub struct Frame {
     pub thread_open: bool,
 }
 
+/// How the panes are drawn.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Layout {
+    pub window: f32,
+    pub sidebar: f32,
+    pub thread: f32,
+    /// The sidebar slides over the sheets instead of sitting beside them.
+    pub drawer: bool,
+    /// The thread sheet covers the main sheet instead of sitting beside it.
+    pub thread_over: bool,
+}
+
 impl Frame {
+    fn drawer(self) -> bool {
+        self.window < DRAWER_BELOW
+    }
+
+    /// What sits beside the main sheet. The thread sheet does while both sheets fit at their
+    /// minimums, and covers the main sheet once they do not.
+    fn docked(self) -> Self {
+        let sidebar_open = self.sidebar_open && !self.drawer();
+        let beside = Self {
+            sidebar_open,
+            thread_open: true,
+            ..self
+        };
+        let sidebar_min = if sidebar_open { SIDEBAR.min } else { 0. };
+        Self {
+            sidebar_open,
+            thread_open: self.thread_open && beside.room() >= sidebar_min + THREAD.min,
+            ..self
+        }
+    }
+
+    /// The main sheet's width with no thread sheet beside it, given the sidebar beside it.
+    fn main_alone(self, sidebar: f32) -> f32 {
+        let left = if self.sidebar_open { sidebar } else { MARGIN };
+        self.window - left - MARGIN
+    }
+
     /// The room for the sidebar and the thread sheet together.
     fn room(self) -> f32 {
         let chrome = MARGIN
@@ -93,9 +135,28 @@ impl PaneWidths {
         })
     }
 
-    /// What to draw. A narrow window takes from the thread sheet first, without forgetting
-    /// the chosen widths: they come back when the window grows.
-    pub fn fitted(self, frame: Frame) -> Self {
+    /// What to draw. A narrow window takes from the thread sheet first, then from the sidebar,
+    /// then lays the thread sheet over the main sheet and turns the sidebar into a drawer,
+    /// without forgetting the chosen widths: they come back when the window grows.
+    pub fn layout(self, frame: Frame) -> Layout {
+        let docked = frame.docked();
+        let fitted = self.fitted(docked);
+        let thread_over = frame.thread_open && !docked.thread_open;
+        Layout {
+            window: frame.window,
+            sidebar: fitted.sidebar,
+            thread: if thread_over {
+                docked.main_alone(fitted.sidebar)
+            } else {
+                fitted.thread
+            },
+            drawer: frame.drawer(),
+            thread_over,
+        }
+    }
+
+    /// Fits the panes beside the main sheet.
+    fn fitted(self, frame: Frame) -> Self {
         let sidebar = if frame.sidebar_open { self.sidebar } else { 0. };
         let thread = if frame.thread_open { self.thread } else { 0. };
         let over = (sidebar + thread - frame.room()).max(0.);
@@ -115,10 +176,17 @@ impl PaneWidths {
         }
     }
 
-    /// Sets one pane from a drag, leaving the main sheet its share of the window.
+    /// Sets one pane from a drag, leaving the main sheet its share of the window. The drawer
+    /// has the window instead.
     pub fn with_dragged(self, edge: Edge, width: f32, frame: Frame) -> Self {
+        let drawer = frame.drawer();
+        let frame = frame.docked();
         let shown = self.fitted(frame);
         match edge {
+            Edge::Sidebar if drawer => Self {
+                sidebar: limit(width, &SIDEBAR, frame.window - MARGIN),
+                ..self
+            },
             Edge::Sidebar => {
                 let other = if frame.thread_open { shown.thread } else { 0. };
                 Self {
@@ -253,6 +321,56 @@ mod tests {
         // Room is 724, and the sidebar holds 240.
         let dragged = widths(240., 416.).with_dragged(Edge::Thread, 700., frame);
         assert_eq!(dragged, widths(240., 484.));
+    }
+
+    fn layout(window: f32, sidebar_open: bool) -> Layout {
+        widths(240., 416.).layout(Frame {
+            window,
+            sidebar_open,
+            thread_open: true,
+        })
+    }
+
+    #[test]
+    fn the_thread_sheet_sits_beside_the_main_sheet_while_both_fit() {
+        // 180 + 360 + 360 and the margins.
+        let tight = layout(916., true);
+        assert!(!tight.thread_over);
+        assert_eq!((tight.sidebar, tight.thread), (180., 360.));
+        // Without the sidebar, 8 + 360 + 8 + 360 + 8.
+        assert!(!layout(744., false).thread_over);
+    }
+
+    #[test]
+    fn then_covers_the_main_sheet() {
+        let over = layout(915., true);
+        assert!(over.thread_over && !over.drawer);
+        // The main sheet's place: 915 - 240 - 8.
+        assert_eq!((over.sidebar, over.thread), (240., 667.));
+        assert!(layout(743., false).thread_over);
+    }
+
+    #[test]
+    fn a_narrow_window_turns_the_sidebar_into_a_drawer() {
+        assert!(!layout(DRAWER_BELOW, true).drawer);
+        let narrow = layout(DRAWER_BELOW - 1., true);
+        assert!(narrow.drawer && narrow.thread_over);
+        assert_eq!(narrow.sidebar, 240.);
+    }
+
+    #[test]
+    fn the_drawer_drags_within_its_range() {
+        let frame = Frame {
+            window: 600.,
+            sidebar_open: true,
+            thread_open: true,
+        };
+        let chosen = widths(240., 416.);
+        assert_eq!(
+            chosen.with_dragged(Edge::Sidebar, 9999., frame).sidebar,
+            400.
+        );
+        assert_eq!(chosen.with_dragged(Edge::Sidebar, 50., frame).sidebar, 180.);
     }
 
     #[test]

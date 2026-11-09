@@ -25,7 +25,7 @@ use braydr_store::Store;
 use gpui_kit::component::theme::{Theme, ThemeMode};
 use gpui_kit::{
     App, AppContext as _, AssetSource, KeyBinding, Menu, MenuItem, SharedString, TitlebarOptions,
-    WindowOptions, point, px,
+    WindowOptions, point, px, size,
 };
 
 fn data_dir() -> PathBuf {
@@ -214,6 +214,10 @@ fn main() {
             let (bounds, display_id) = window_state::restore(&runtime, cx);
             let options = WindowOptions {
                 window_bounds: Some(bounds),
+                window_min_size: Some(size(
+                    px(window_state::MIN_SIZE.0),
+                    px(window_state::MIN_SIZE.1),
+                )),
                 display_id,
                 titlebar: Some(TitlebarOptions {
                     title: Some("Braydr".into()),
