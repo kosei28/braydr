@@ -745,10 +745,22 @@ fn a_code_blocks_button_copies_its_code(cx: &mut TestAppContext) {
 #[gpui_kit::test]
 fn a_users_message_is_selectable_in_reading_order(cx: &mut TestAppContext) {
     let rt = runtime();
-    let channel = rt.store().create_channel("c", &launch()).unwrap().channel_id;
-    let asked = rt.store().user_post_main(&channel, "**そのまま**の質問").unwrap();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let asked = rt
+        .store()
+        .user_post_main(&channel, "**そのまま**の質問")
+        .unwrap();
     rt.store()
-        .agent_post_main(&channel, "エージェントの答え", false, Some(&asked.message_id))
+        .agent_post_main(
+            &channel,
+            "エージェントの答え",
+            false,
+            Some(&asked.message_id),
+        )
         .unwrap();
     cx.update(|cx| {
         gpui_kit::init(cx);
