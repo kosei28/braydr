@@ -172,7 +172,7 @@ impl Timeline {
     }
 
     /// A list scrolled to its end anchors there, past the last row, and reports no row bounds.
-    fn follows_end(&self) -> bool {
+    pub fn follows_end(&self) -> bool {
         self.list.logical_scroll_top().item_ix >= self.rows.len()
     }
 

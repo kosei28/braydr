@@ -1355,6 +1355,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "C5G3AM",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -1384,8 +1413,9 @@
                           "id": "F4zrJJ",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -1400,10 +1430,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -1557,9 +1587,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -2123,6 +2153,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "iOg83",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -2133,9 +2192,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -2143,8 +2202,9 @@
                       "id": "h6iF0A",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -2159,10 +2219,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -3174,6 +3234,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "WmQ3g",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -3203,8 +3292,9 @@
                           "id": "A0qtG",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -3219,10 +3309,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -3339,9 +3429,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -3404,6 +3494,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "wTZd8",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -3414,9 +3533,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -3424,8 +3543,9 @@
                       "id": "N1GFp",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "$accent",
                       "strokeWidth": 1,
                       "effect": {
@@ -3440,10 +3560,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -4384,6 +4504,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "UfWVS",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -4413,8 +4562,9 @@
                           "id": "Z8rFN",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -4429,10 +4579,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -4586,9 +4736,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -4711,7 +4861,61 @@
                               "fill": "$ink",
                               "textGrowth": "fixed-width",
                               "width": "fill_container",
-                              "content": "失敗が 3 回続くとキュー全体が止まります。対応案は 2 つです。どちらにしますか？",
+                              "content": "失敗が 3 回続くとキュー全体が止まります。先頭のジョブが失敗し続けると、後ろのジョブがすべて待たされるためです。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "xfcZk",
+                              "name": "Code",
+                              "clip": true,
+                              "width": "fill_container",
+                              "fill": "$tint",
+                              "cornerRadius": 8,
+                              "padding": [
+                                10,
+                                14
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "xD219",
+                                  "name": "Code Text",
+                                  "fill": "$ink",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "loop {\n  let job = queue.peek()?;\n  match deliver(&job) {\n    Ok(()) => queue.pop(),\n    Err(_) if job.tries < 3 => job.retry(),\n    Err(_) => return Err(Stuck),\n  }\n}",
+                                  "lineHeight": 1.6,
+                                  "fontFamily": "$mono",
+                                  "fontSize": 12.5,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "dD6C0",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "本番のログでは、昨日の 14:02 から 14:09 までに 38 件のジョブが待たされていました。どれも宛先は正常で、先頭の 1 件だけが失敗していました。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ebksw",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "対応案は 2 つです。",
                               "lineHeight": 1.65,
                               "fontFamily": "$sans",
                               "fontSize": 14,
@@ -4820,6 +5024,45 @@
                                   ]
                                 }
                               ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "csi1S",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "1 つ目は変更が小さく、今の再送の間隔をそのまま使えます。2 つ目は宛先ごとに独立して進むので、遅い宛先に引きずられなくなりますが、宛先の数だけワーカーが要ります。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "j28fc",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "どちらの案でも、止まっていたジョブは管理画面から手動で再送できるようにします。再送の履歴はジョブごとに残します。",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "umTlk",
+                              "name": "Text",
+                              "fill": "$ink",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "どちらにしますか？",
+                              "lineHeight": 1.65,
+                              "fontFamily": "$sans",
+                              "fontSize": 14,
+                              "fontWeight": "normal"
                             }
                           ]
                         },
@@ -4843,6 +5086,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "ngaLY",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -4853,9 +5125,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -4863,8 +5135,9 @@
                       "id": "ooZEP",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -4879,10 +5152,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -6046,6 +6319,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "K7ScUI",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -6075,8 +6377,9 @@
                           "id": "G1FcmE",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -6091,10 +6394,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -6268,9 +6571,9 @@
                   "gap": 18,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -6608,6 +6911,35 @@
                           "fontWeight": "normal"
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "hGaLS",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 730,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -6620,9 +6952,9 @@
                   "gap": 8,
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -6664,8 +6996,9 @@
                       "id": "J12qcQ",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -6680,10 +7013,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -7846,6 +8179,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "erMRD",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 1176,
+                      "height": 24
                     }
                   ]
                 },
@@ -7875,8 +8237,9 @@
                           "id": "xFv2w",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -7891,10 +8254,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -9195,6 +9558,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "YGjG9",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 1176,
+                      "height": 24
                     }
                   ]
                 },
@@ -9224,8 +9616,9 @@
                           "id": "wvDBH",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -9240,10 +9633,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -10620,6 +11013,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "yEzLw",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -10649,8 +11071,9 @@
                           "id": "yaE5x",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -10665,10 +11088,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -10822,9 +11245,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -11388,6 +11811,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "hHDcm",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -11398,9 +11850,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -11408,8 +11860,9 @@
                       "id": "wJ9Cc",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -11424,10 +11877,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -13012,6 +13465,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "txl3c",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -13041,8 +13523,9 @@
                           "id": "gixTb",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -13057,10 +13540,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -13214,9 +13697,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -13780,6 +14263,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "oIc0i",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -13790,9 +14302,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -13800,8 +14312,9 @@
                       "id": "vU1P1",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -13816,10 +14329,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -15094,8 +15607,9 @@
                           "id": "yoO1T",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "$accent",
                           "strokeWidth": 1,
                           "effect": {
@@ -15110,10 +15624,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -16281,6 +16795,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "h3gF31",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -16310,8 +16853,9 @@
                           "id": "UAX8C",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -16326,10 +16870,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -16687,9 +17231,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -17253,6 +17797,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "UJEqF",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -17263,9 +17836,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -17273,8 +17846,9 @@
                       "id": "jn0uE",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -17289,10 +17863,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -18458,6 +19032,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "KGb60",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -18487,8 +19090,9 @@
                           "id": "d19Dl",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -18503,10 +19107,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -18660,9 +19264,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -19226,6 +19830,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "Z1dqhw",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -19236,9 +19869,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -19246,8 +19879,9 @@
                       "id": "B4qP2h",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -19262,10 +19896,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -20582,6 +21216,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "ooTIf",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -20611,8 +21274,9 @@
                           "id": "wfyXC",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -20627,10 +21291,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -20784,9 +21448,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -21350,6 +22014,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "FmsPL",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -21360,9 +22053,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -21370,8 +22063,9 @@
                       "id": "AunNi",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -21386,10 +22080,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -22752,6 +23446,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "e9Axt",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -22781,8 +23504,9 @@
                           "id": "qTeEs",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -22797,10 +23521,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -22954,9 +23678,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -23520,6 +24244,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "LQpHo",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -23530,9 +24283,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -23540,8 +24293,9 @@
                       "id": "Rb7kK",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -23556,10 +24310,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -24639,6 +25393,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "yI1oz",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 708,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 1176,
+                      "height": 24
                     }
                   ]
                 },
@@ -24747,8 +25530,9 @@
                           "id": "hAkPS",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -24763,10 +25547,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -25848,6 +26632,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "ssTqc",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 708,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 1176,
+                      "height": 24
                     }
                   ]
                 },
@@ -25941,8 +26754,9 @@
                           "id": "c6hQIC",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -25957,10 +26771,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -27128,6 +27942,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "z85kk",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 752,
+                      "height": 24
                     }
                   ]
                 },
@@ -27157,8 +28000,9 @@
                           "id": "jjPuu",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -27173,10 +28017,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -27330,9 +28174,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -27896,6 +28740,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "yUHIX",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -27906,9 +28779,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -27916,8 +28789,9 @@
                       "id": "aPGbb",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -27932,10 +28806,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [
@@ -29239,6 +30113,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "XHBYg",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 708,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 1176,
+                      "height": 24
                     }
                   ]
                 },
@@ -29332,8 +30235,9 @@
                           "id": "Cb8Nm",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -29348,10 +30252,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -30386,6 +31290,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "VWtdd",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 984,
+                      "height": 24
                     }
                   ]
                 },
@@ -30415,8 +31348,9 @@
                           "id": "mJh8U",
                           "name": "Composer",
                           "width": "fill_container",
+                          "height": 44,
                           "fill": "$sheet",
-                          "cornerRadius": 12,
+                          "cornerRadius": 22,
                           "stroke": "#00000022",
                           "strokeWidth": 1,
                           "effect": {
@@ -30431,10 +31365,10 @@
                           },
                           "gap": 10,
                           "padding": [
-                            10,
-                            10,
-                            10,
-                            14
+                            9,
+                            9,
+                            9,
+                            16
                           ],
                           "alignItems": "end",
                           "children": [
@@ -30588,9 +31522,9 @@
                   "gap": 22,
                   "padding": [
                     8,
-                    20,
-                    20,
-                    20
+                    24,
+                    24,
+                    24
                   ],
                   "children": [
                     {
@@ -31154,6 +32088,35 @@
                           ]
                         }
                       ]
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "a7SJfc",
+                      "layoutPosition": "absolute",
+                      "x": 0,
+                      "y": 756,
+                      "name": "Fade",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 180,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#FFFFFF00",
+                            "position": 0
+                          },
+                          {
+                            "color": "#FFFFFF",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 400,
+                      "height": 24
                     }
                   ]
                 },
@@ -31164,9 +32127,9 @@
                   "width": "fill_container",
                   "padding": [
                     0,
+                    24,
                     16,
-                    16,
-                    16
+                    24
                   ],
                   "children": [
                     {
@@ -31174,8 +32137,9 @@
                       "id": "rSqMP",
                       "name": "Composer",
                       "width": "fill_container",
+                      "height": 44,
                       "fill": "$sheet",
-                      "cornerRadius": 12,
+                      "cornerRadius": 22,
                       "stroke": "#00000022",
                       "strokeWidth": 1,
                       "effect": {
@@ -31190,10 +32154,10 @@
                       },
                       "gap": 10,
                       "padding": [
-                        10,
-                        10,
-                        10,
-                        14
+                        9,
+                        9,
+                        9,
+                        16
                       ],
                       "alignItems": "end",
                       "children": [

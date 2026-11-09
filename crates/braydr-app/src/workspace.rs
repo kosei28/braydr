@@ -16,7 +16,8 @@ use gpui_kit::{
     DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight, InteractiveElement as _,
     IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
     Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
-    SystemNotification, Transformation, Window, canvas, div, list, percentage, px,
+    SystemNotification, Transformation, Window, canvas, div, linear_color_stop, linear_gradient,
+    list, percentage, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
@@ -33,6 +34,49 @@ const NOTIFICATION_CHARS: usize = 120;
 const MESSAGE_INSET_X: f32 = 10.;
 const MESSAGE_INSET_Y: f32 = 7.;
 const COPIED_FOR: Duration = Duration::from_millis(1500);
+/// Both sheets center their content in a column no wider than this.
+const COLUMN_MAX: f32 = 720.;
+const COMPOSER_HEIGHT: f32 = 44.;
+/// `gpui-base`'s scrollbar, at its widest.
+const SCROLLBAR_WIDTH: f32 = 16.;
+/// Both sheets' room between their edges and the content.
+const COLUMN_PAD: f32 = 24.;
+/// How far a list fades out above the composer. The last row keeps this much room below it, so
+/// the fade covers nothing at the end.
+pub const FADE: f32 = 24.;
+
+/// One row of a sheet's content: centered, and no wider than the column.
+fn column(pad: f32) -> Div {
+    div().w_full().max_w(px(COLUMN_MAX)).px(px(pad))
+}
+
+fn centered_row(content: impl IntoElement) -> Div {
+    div().w_full().flex().justify_center().child(content)
+}
+
+/// The composer and what sits on it, under a list that fades out into it.
+fn composer_area(content: Div) -> Div {
+    div()
+        .flex_none()
+        .w_full()
+        .relative()
+        .pb(px(16.))
+        .child(
+            // Short of the scrollbar, which stays as it is.
+            div()
+                .absolute()
+                .left_0()
+                .right(px(SCROLLBAR_WIDTH))
+                .top(px(-FADE))
+                .h(px(FADE))
+                .bg(linear_gradient(
+                    180.,
+                    linear_color_stop(theme::sheet_clear(), 0.),
+                    linear_color_stop(theme::sheet(), 1.),
+                )),
+        )
+        .child(centered_row(content))
+}
 
 /// The right sheet: a thread, or a draft reply before the thread exists.
 pub struct ThreadPane {
@@ -444,9 +488,23 @@ impl Workspace {
                 .auto_grow(1, 8)
                 .placeholder(placeholder)
         });
-        cx.subscribe(&draft, |_, _, _: &InputEvent, cx| cx.notify())
-            .detach();
+        cx.subscribe(&draft, |this, draft, _: &InputEvent, cx| {
+            this.keep_thread_end(&draft);
+            cx.notify();
+        })
+        .detach();
         draft
+    }
+
+    /// A thread reads down from its top, so a reply growing a line would push its end out of
+    /// view. Pins the end before that layout when the user was there.
+    fn keep_thread_end(&self, draft: &Entity<TextareaState>) {
+        let Some(pane) = self.pane.as_ref().filter(|pane| &pane.input == draft) else {
+            return;
+        };
+        if let Some(timeline) = pane.timeline.as_ref().filter(|t| t.is_at_bottom()) {
+            timeline.list.scroll_to_end();
+        }
     }
 
     pub fn start_create(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1218,12 +1276,14 @@ impl Workspace {
             .flex()
             .items_end()
             .gap(px(10.))
-            .pl(px(10.))
+            .pl(px(16.))
             .pr(px(8.))
             .py(px(8.))
-            .min_h(px(44.))
+            .min_h(px(COMPOSER_HEIGHT))
             .bg(theme::sheet())
-            .rounded(px(12.))
+            // A half circle at each end while it is one line. The send button sits on the same
+            // centre: 8 of padding and the 1 of border around 26 make 44.
+            .rounded(px(COMPOSER_HEIGHT / 2.))
             .border_1()
             .border_color(if focused {
                 theme::accent()
@@ -1393,10 +1453,7 @@ impl Workspace {
         };
         let header = self.render_header(channel, cx);
         let banner = self.render_banner(channel, cx);
-        let composer = div()
-            .w_full()
-            .max_w(px(720.))
-            .px(px(24.))
+        let composer = column(COLUMN_PAD)
             .flex()
             .flex_col()
             .gap(px(8.))
@@ -1419,18 +1476,12 @@ impl Workspace {
             timeline.list.clone(),
             cx.processor(move |this, ix: usize, _, cx| {
                 let row = rows[ix].clone();
-                div()
-                    .w_full()
-                    .flex()
-                    .justify_center()
-                    .child(
-                        div()
-                            .w_full()
-                            .max_w(px(720.))
-                            .px(px(24. - MESSAGE_INSET_X))
-                            .child(this.message_row(&row, ix, true, cx)),
-                    )
-                    .into_any_element()
+                centered_row(
+                    column(COLUMN_PAD - MESSAGE_INSET_X)
+                        .when(ix + 1 == rows.len(), |last| last.pb(px(FADE)))
+                        .child(this.message_row(&row, ix, true, cx)),
+                )
+                .into_any_element()
             }),
         )
         .size_full();
@@ -1442,15 +1493,7 @@ impl Workspace {
                         .mode(gpui_kit::base::ScrollbarMode::Always),
                 ),
             )
-            .child(
-                div()
-                    .flex_none()
-                    .w_full()
-                    .flex()
-                    .justify_center()
-                    .pb(px(16.))
-                    .child(composer),
-            )
+            .child(composer_area(composer))
     }
 
     fn render_banner(&self, row: &ChannelRow, cx: &mut Context<Self>) -> Option<AnyElement> {
@@ -1607,9 +1650,11 @@ impl Workspace {
                         .size_full()
                         .overflow_y_scroll()
                         .track_scroll(&pane.draft_scroll)
-                        .px(px(20. - MESSAGE_INSET_X))
                         .pt(px(1.))
-                        .child(self.message(&pane.parent, None, usize::MAX / 2, false, cx)),
+                        .pb(px(FADE))
+                        .child(centered_row(column(COLUMN_PAD - MESSAGE_INSET_X).child(
+                            self.message(&pane.parent, None, usize::MAX / 2, false, cx),
+                        ))),
                 )
                 .child(
                     gpui_kit::base::Scrollbar::vertical(&pane.draft_scroll)
@@ -1624,11 +1669,12 @@ impl Workspace {
                         timeline.list.clone(),
                         cx.processor(move |this, ix: usize, _, cx| {
                             let row = rows[ix].clone();
-                            div()
-                                .w_full()
-                                .px(px(20. - MESSAGE_INSET_X))
-                                .child(this.message_row(&row, ix + 1_000_000, false, cx))
-                                .into_any_element()
+                            centered_row(
+                                column(COLUMN_PAD - MESSAGE_INSET_X)
+                                    .when(ix + 1 == rows.len(), |last| last.pb(px(FADE)))
+                                    .child(this.message_row(&row, ix + 1_000_000, false, cx)),
+                            )
+                            .into_any_element()
                         }),
                     )
                     .size_full(),
@@ -1659,11 +1705,8 @@ impl Workspace {
                 .overflow_hidden()
                 .child(header)
                 .child(replies)
-                .child(
-                    div()
-                        .flex_none()
-                        .px(px(16.))
-                        .pb(px(16.))
+                .child(composer_area(
+                    column(COLUMN_PAD)
                         .flex()
                         .flex_col()
                         .gap(px(8.))
@@ -1684,7 +1727,7 @@ impl Workspace {
                             window,
                             cx,
                         )),
-                ),
+                )),
         )
     }
 

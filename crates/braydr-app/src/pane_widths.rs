@@ -8,13 +8,14 @@ const SIDEBAR: Range = Range {
     min: 180.,
     max: 400.,
 };
+/// The main sheet keeps at least this much when a pane grows or the window shrinks. The thread
+/// sheet has the same floor and no ceiling: its content column stops growing by itself.
+const MAIN_MIN: f32 = 360.;
 const THREAD: Range = Range {
     default: 416.,
-    min: 320.,
-    max: 720.,
+    min: MAIN_MIN,
+    max: f32::INFINITY,
 };
-/// The main sheet keeps at least this much when a pane grows or the window shrinks.
-const MAIN_MIN: f32 = 360.;
 /// The sheets' margin to the window's edge, and the gap between them.
 const MARGIN: f32 = 8.;
 
@@ -186,7 +187,7 @@ mod tests {
 
     #[test]
     fn brings_saved_widths_back_into_range() {
-        assert_eq!(PaneWidths::decode("10 9999"), Some(widths(180., 720.)));
+        assert_eq!(PaneWidths::decode("10 9999"), Some(widths(180., 9999.)));
     }
 
     #[test]
@@ -211,13 +212,13 @@ mod tests {
             window: 860.,
             ..WIDE
         };
-        // Room is 484, with the thread sheet at its minimum of 320.
-        assert_eq!(widths(240., 416.).fitted(frame), widths(180., 320.));
+        // Room is 484, with the thread sheet at its minimum of 360.
+        assert_eq!(widths(240., 416.).fitted(frame), widths(180., 360.));
         let tiny = Frame {
             window: 640.,
             ..WIDE
         };
-        assert_eq!(widths(240., 416.).fitted(tiny), widths(180., 320.));
+        assert_eq!(widths(240., 416.).fitted(tiny), widths(180., 360.));
     }
 
     #[test]
@@ -238,8 +239,9 @@ mod tests {
         assert_eq!(sidebar(320.), 320.);
         assert_eq!(sidebar(900.), 400.);
         let thread = |width| chosen.with_dragged(Edge::Thread, width, WIDE).thread;
-        assert_eq!(thread(50.), 320.);
-        assert_eq!(thread(9999.), 720.);
+        assert_eq!(thread(50.), 360.);
+        // No ceiling but the main sheet's share: 1440 - 16 - 360 - 240.
+        assert_eq!(thread(9999.), 824.);
     }
 
     #[test]

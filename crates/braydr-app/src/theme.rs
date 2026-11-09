@@ -12,6 +12,10 @@ pub fn window() -> Rgba {
 pub fn sheet() -> Rgba {
     c(0xFFFFFF)
 }
+/// `sheet` with no opacity, where a fade into it starts.
+pub fn sheet_clear() -> Rgba {
+    rgba(0xFFFFFF00)
+}
 pub fn tint() -> Rgba {
     c(0xF4F4F1)
 }

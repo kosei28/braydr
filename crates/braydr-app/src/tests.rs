@@ -1046,3 +1046,108 @@ fn a_channel_reopens_its_thread_with_the_parent_at_the_top_before_painting(
     settle(cx);
     assert!(at_top(&view, cx, &parent.message_id));
 }
+
+#[gpui_kit::test]
+fn a_thread_read_to_its_end_stays_there_while_the_reply_grows(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let parent = rt.store().user_post_main(&channel, "親").unwrap();
+    let reply = rt
+        .store()
+        .user_reply(&channel, &parent.message_id, "返信")
+        .unwrap();
+    let mut last = reply.message.message_id.clone();
+    for i in 0..40 {
+        last = rt
+            .store()
+            .agent_post_thread(
+                &channel,
+                &reply.thread.thread_id,
+                &format!("続き {i}"),
+                false,
+                Some(&last),
+            )
+            .unwrap()
+            .message_id;
+    }
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, _| window.activate_window());
+    settle(cx);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    settle(cx);
+    // Read down to the end by scrolling, not by opening there.
+    view.read_with(cx, |this, _| {
+        let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+        timeline.list.scroll_to(ListOffset {
+            item_ix: timeline.rows.len() - 3,
+            offset_in_item: px(0.),
+        });
+    });
+    settle(cx);
+    let end_in_view = |view: &Entity<Workspace>, cx: &mut VisualTestContext| {
+        view.read_with(cx, |this, _| {
+            let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+            let viewport = timeline.list.viewport_bounds();
+            timeline.follows_end()
+                || timeline
+                    .list
+                    .bounds_for_item(timeline.rows.len() - 1)
+                    .is_some_and(|row| row.bottom() <= viewport.bottom() + px(1.))
+        })
+    };
+    assert!(end_in_view(&view, cx));
+
+    for _ in 0..6 {
+        cx.simulate_keystrokes("enter");
+        settle(cx);
+        assert!(end_in_view(&view, cx));
+    }
+}
+
+#[gpui_kit::test]
+fn only_the_last_row_keeps_room_above_the_composer(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    let parent = rt.store().user_post_main(&channel, "親").unwrap();
+    rt.store()
+        .user_reply(&channel, &parent.message_id, "一")
+        .unwrap();
+    rt.store()
+        .user_reply(&channel, &parent.message_id, "二")
+        .unwrap();
+    let (view, cx) = open(cx, &rt);
+    cx.update(|window, _| window.activate_window());
+    settle(cx);
+    view.update_in(cx, |this, window, cx| {
+        this.open_thread(parent.clone(), window, cx)
+    });
+    settle(cx);
+    // Rows: the parent, 一, 二. A thread that fits is laid out from its top.
+    let height = |view: &Entity<Workspace>, cx: &mut VisualTestContext, ix: usize| {
+        view.read_with(cx, |this, _| {
+            let timeline = this.pane.as_ref().unwrap().timeline.as_ref().unwrap();
+            timeline.list.bounds_for_item(ix).unwrap().size.height
+        })
+    };
+    let (first, second) = (height(&view, cx, 1), height(&view, cx, 2));
+    assert_eq!(second - first, px(crate::workspace::FADE));
+
+    rt.store()
+        .user_reply(&channel, &parent.message_id, "三")
+        .unwrap();
+    rt.bump();
+    poll(cx);
+    settle(cx);
+    assert_eq!(height(&view, cx, 2), first);
+    assert_eq!(height(&view, cx, 3), second);
+}
