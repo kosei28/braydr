@@ -2592,11 +2592,14 @@ impl CodeBlock {
                 .reveal(node_cx.reveal_at(leaf_key, 0, self.code().len())),
             );
         let actions = node_cx.code_block_actions.clone().map(|actions| {
+            // Braydr: the actions show only while the pointer is over the block.
             div()
                 .id("actions")
                 .absolute()
                 .top_2()
                 .right_2()
+                .invisible()
+                .group_hover(CODE_BLOCK_GROUP, |style| style.visible())
                 .bg(style.code_background())
                 .rounded(cx.theme().tokens.radius.md)
                 .child(actions(&self, window, cx))
@@ -2621,6 +2624,7 @@ impl CodeBlock {
             // pinned to the viewport instead of moving with the code.
             div()
                 .id(id.clone())
+                .group(CODE_BLOCK_GROUP)
                 .w_full()
                 .min_w_0()
                 .relative()
@@ -2638,7 +2642,11 @@ impl CodeBlock {
         } else {
             // Without actions nothing under the block needs element state.
             match actions {
-                Some(actions) => block.id(id).child(actions).into_any_element(),
+                Some(actions) => block
+                    .id(id)
+                    .group(CODE_BLOCK_GROUP)
+                    .child(actions)
+                    .into_any_element(),
                 None => block.children(lang_label).into_any_element(),
             }
         };
@@ -2653,6 +2661,9 @@ impl CodeBlock {
         )
     }
 }
+
+/// Braydr: the hover group of a code block, which reveals its actions.
+const CODE_BLOCK_GROUP: &str = "code-block";
 
 /// A context for rendering nodes, contains link references.
 #[derive(Default, Clone)]

@@ -22,6 +22,7 @@ use braydr_core::Settings;
 use braydr_herdr::{Client, Event, default_socket};
 use braydr_runtime::{Runtime, terminal_labels};
 use braydr_store::Store;
+use gpui_kit::component::highlighter::HighlightTheme;
 use gpui_kit::component::theme::{Theme, ThemeMode};
 use gpui_kit::{
     App, AppContext as _, AssetSource, KeyBinding, Menu, MenuItem, SharedString, TitlebarOptions,
@@ -175,6 +176,12 @@ fn apply_theme(cx: &mut App) {
     theme.foreground = theme::ink().into();
     theme.muted_foreground = theme::ink4().into();
     theme.caret = theme::ink().into();
+    match serde_json::from_str::<HighlightTheme>(theme::SYNTAX) {
+        Ok(syntax) => theme.highlight_theme = Arc::new(syntax),
+        Err(error) => tracing::error!(%error, "cannot read the code colors"),
+    }
+    // Code blocks take their colors from the copy the text views were given.
+    Theme::sync_base(cx);
 }
 
 fn bind_keys(cx: &mut App) {

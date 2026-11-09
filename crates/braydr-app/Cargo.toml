@@ -16,8 +16,9 @@ braydr-ipc = { path = "../braydr-ipc" }
 braydr-runtime = { path = "../braydr-runtime" }
 braydr-store = { path = "../braydr-store" }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-gpui-kit = "=0.8.1"
+gpui-kit = { version = "=0.8.1", features = ["syntect"] }
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+serde_json = "1"
 tracing = "0.1"
 
 [features]

@@ -8,16 +8,17 @@ use braydr_core::text::head;
 use braydr_core::{Author, LaunchConfig, Message, StateAction, Thread, validate};
 use braydr_herdr::Activity;
 use braydr_runtime::SessionState;
+use gpui_kit::base::text::CodeBlock;
 use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaState};
 use gpui_kit::component::text::TextView;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Animation, AnimationExt as _, AnyElement, AppContext as _, ClipboardItem, Context, CursorStyle,
-    DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight, InteractiveElement as _,
-    IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, ParentElement as _,
-    Render, ScrollHandle, SharedString, StatefulInteractiveElement as _, Styled as _,
-    SystemNotification, Transformation, Window, canvas, div, linear_color_stop, linear_gradient,
-    list, percentage, px,
+    Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClipboardItem, Context,
+    CursorStyle, DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight,
+    InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, ParentElement as _, Render, ScrollHandle, SharedString,
+    StatefulInteractiveElement as _, Styled as _, SystemNotification, Transformation, WeakEntity,
+    Window, canvas, div, linear_color_stop, linear_gradient, list, percentage, px,
 };
 
 use crate::overlay::{LaunchFields, Overlay};
@@ -1136,6 +1137,7 @@ impl Workspace {
     ) -> impl IntoElement + use<> {
         let group = SharedString::from(format!("message-{}", message.message_id));
         let markdown_id = SharedString::from(format!("md-{is_main}-{}", message.message_id));
+        let copy_scope = format!("{is_main}-{}", message.message_id);
         let body: AnyElement = match message.author {
             Author::User => div()
                 .max_w(px(520.))
@@ -1149,11 +1151,15 @@ impl Workspace {
                 .child(message.text.clone())
                 .into_any_element(),
             Author::Agent => div()
+                .debug_selector(|| "agent-body".into())
                 .w_full()
                 .text_size(px(14.))
                 .line_height(px(BODY_LINE_HEIGHT))
                 .text_color(theme::ink())
-                .child(TextView::markdown(markdown_id, message.text.clone()))
+                .child(
+                    TextView::markdown(markdown_id, message.text.clone())
+                        .code_block_actions(code_copy(cx.weak_entity(), &copy_scope)),
+                )
                 .into_any_element(),
         };
         let mut footer = div().h(px(26.)).flex().items_center().gap(px(6.)).child(
@@ -2215,5 +2221,38 @@ impl Render for Workspace {
             .children((docked || self.drawer_open).then(|| self.render_edge(Edge::Sidebar, cx)))
             .children(self.resize.is_some().then(|| self.render_resize_cover(cx)))
             .children(overlay)
+    }
+}
+
+/// The copy button in the corner of an agent message's code blocks, shown while the pointer
+/// is over the block.
+fn code_copy(
+    workspace: WeakEntity<Workspace>,
+    scope: &str,
+) -> impl Fn(&CodeBlock, &mut Window, &mut App) -> AnyElement + std::marker::Send + Sync + 'static {
+    let scope = scope.to_owned();
+    move |block, _, cx| {
+        let code = block.code().to_string();
+        // Blocks of one message are told apart by their text; identical blocks copy the same.
+        let key = format!("code-{scope}-{code}");
+        let icon = workspace
+            .upgrade()
+            .map(|workspace| workspace.read(cx).copy_icon(&key, theme::ink2()));
+        let workspace = workspace.clone();
+        div()
+            .id("copy")
+            .debug_selector(|| "code-copy".into())
+            .size(px(26.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(px(8.))
+            .cursor_pointer()
+            .hover(|style| style.bg(theme::tint()))
+            .children(icon)
+            .on_click(move |_, _, cx| {
+                let _ = workspace.update(cx, |this, cx| this.copy(key.clone(), code.clone(), cx));
+            })
+            .into_any_element()
     }
 }

@@ -76,3 +76,36 @@ pub fn dim() -> Rgba {
 
 pub const SANS: &str = "IBM Plex Sans JP";
 pub const MONO: &str = "IBM Plex Mono";
+
+/// Code colors, from the design system's palette: quiet comments, keywords in `accent`.
+pub const SYNTAX: &str = r##"{
+  "name": "Braydr",
+  "appearance": "light",
+  "style": {
+    "syntax": {
+      "comment": { "color": "#59636E" },
+      "comment.doc": { "color": "#59636E" },
+      "keyword": { "color": "#CF222E" },
+      "preproc": { "color": "#CF222E" },
+      "tag": { "color": "#116329" },
+      "string": { "color": "#0A3069" },
+      "string.escape": { "color": "#0A3069" },
+      "string.special": { "color": "#0A3069" },
+      "string.regex": { "color": "#116329" },
+      "string.special.symbol": { "color": "#0550AE" },
+      "number": { "color": "#0550AE" },
+      "boolean": { "color": "#0550AE" },
+      "constant": { "color": "#0550AE" },
+      "attribute": { "color": "#0550AE" },
+      "property": { "color": "#0550AE" },
+      "variable.special": { "color": "#953800" },
+      "type": { "color": "#6639BA" },
+      "constructor": { "color": "#6639BA" },
+      "function": { "color": "#6639BA" },
+      "title": { "color": "#6639BA" },
+      "variable": { "color": "#1F2328" },
+      "emphasis": { "font_style": "italic" },
+      "emphasis.strong": { "font_weight": 700 }
+    }
+  }
+}"##;

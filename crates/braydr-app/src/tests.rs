@@ -706,6 +706,42 @@ fn a_timeline_at_its_end_reads_up_to_the_newest_message(cx: &mut TestAppContext)
     );
 }
 
+#[gpui_kit::test]
+fn a_code_blocks_button_copies_its_code(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    rt.store()
+        .agent_post_main(
+            &channel,
+            "例です。\n\n```rust\nfn main() {}\n```",
+            false,
+            None,
+        )
+        .unwrap();
+    let (view, cx) = open(cx, &rt);
+    settle(cx);
+    // Hidden until the pointer is over the block, which ends the message.
+    assert!(cx.debug_bounds("code-copy").is_none());
+    let body = cx.debug_bounds("agent-body").unwrap();
+    let over = gpui_kit::point(body.center().x, body.bottom() - px(8.));
+    cx.simulate_mouse_move(over, None, Modifiers::none());
+    settle(cx);
+    click(cx, "code-copy");
+    let clipboard = cx.update(|_, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+    assert_eq!(clipboard.as_deref(), Some("fn main() {}"));
+    view.read_with(cx, |this, _| {
+        assert!(
+            this.copied
+                .as_deref()
+                .is_some_and(|key| key.starts_with("code-"))
+        )
+    });
+}
+
 fn click(cx: &mut VisualTestContext, selector: &'static str) {
     let at = cx.debug_bounds(selector).unwrap().center();
     let none = Modifiers::none();
