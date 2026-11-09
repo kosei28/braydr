@@ -282,7 +282,7 @@ hc attach t7      ⧉
 
 ## 7. アプリアイコン
 
-白と `accent` の吹き出しを積んで頭文字の B にし、`ink` の地に置く。白がメイン、青がスレッドを表す。
+`sheet` の白と、未解決の導線の時刻と同じ見え方の青（`#697DFF`。`accent-tint` の面に `accent-soft` を重ねた色）の吹き出しを積んで頭文字の B にし、`ink` の地に置く。白がメイン、青がスレッドを表す。
 1024 の枠に 824、角丸 185 の面を置く macOS の寸法に従う。元は Pencil のファイルの `アプリアイコン` で、
 書き出しは `design/exports/app-icon.png` と `crates/braydr-app/assets/app/AppIcon.icns`。
 
