@@ -2553,6 +2553,28 @@ impl CodeBlock {
                     .child(lang)
             });
 
+        // Braydr: a highlight's background fills its whole rows, out to the
+        // block's padding, the way a diff line is marked.
+        let mut line_backgrounds = Vec::new();
+        let highlights = node_cx
+            .code_block_highlighter
+            .as_ref()
+            .map(|highlighter| self.highlighted_styles(highlighter))
+            .unwrap_or_default()
+            .into_iter()
+            .map(|(range, mut style)| {
+                if let Some(background) = style.background_color.take() {
+                    line_backgrounds.push((range.clone(), background));
+                }
+                (range, InlineHighlight::from(style))
+            })
+            .collect();
+        let line_bleed = match style.code_block().padding.left {
+            Some(DefiniteLength::Absolute(length)) => length.to_pixels(window.rem_size()),
+            Some(DefiniteLength::Fraction(_)) => px(0.),
+            None => px(16.),
+        };
+
         let block = div()
             .w_full()
             .min_w_0()
@@ -2575,19 +2597,10 @@ impl CodeBlock {
                 Inline::new(
                     self.state.clone(),
                     vec![],
-                    fade_highlights(
-                        node_cx
-                            .code_block_highlighter
-                            .as_ref()
-                            .map(|highlighter| self.highlighted_styles(highlighter))
-                            .unwrap_or_default()
-                            .into_iter()
-                            .map(|(range, style)| (range, InlineHighlight::from(style)))
-                            .collect(),
-                        node_cx.stream_fades(leaf_key),
-                    ),
+                    fade_highlights(highlights, node_cx.stream_fades(leaf_key)),
                     node_cx.link_click_handler.clone(),
                 )
+                .line_backgrounds(line_backgrounds, line_bleed)
                 .range_backgrounds(node_cx.range_backgrounds(leaf_key).to_vec())
                 .reveal(node_cx.reveal_at(leaf_key, 0, self.code().len())),
             );

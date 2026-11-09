@@ -108,6 +108,8 @@ pub const SYNTAX: &str = r##"{
       "function": { "color": "#6639BA" },
       "title": { "color": "#6639BA" },
       "variable": { "color": "#1F2328" },
+      "diff.plus": { "color": "#116329", "background_color": "#DAFBE1" },
+      "diff.minus": { "color": "#82071E", "background_color": "#FFEBE9" },
       "emphasis": { "font_style": "italic" },
       "emphasis.strong": { "font_weight": 700 }
     }

@@ -22,3 +22,4 @@ all = "warn"
 
 [patch.crates-io]
 gpui-base = { path = "vendor/gpui-base" }
+gpui-component = { path = "vendor/gpui-component" }

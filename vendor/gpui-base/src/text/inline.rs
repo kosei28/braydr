@@ -323,6 +323,10 @@ pub(super) struct Inline {
     selection_source: Option<(Arc<Mutex<InlineState>>, Range<usize>)>,
     /// Range highlight backgrounds, painted behind the text.
     range_backgrounds: Vec<(Range<usize>, Hsla)>,
+    /// Braydr: backgrounds that fill every row their range touches, widened
+    /// by the bleed on both sides (diff lines in a code block).
+    line_backgrounds: Vec<(Range<usize>, Hsla)>,
+    line_bleed: Pixels,
     /// The start of a pending reveal, when it is in this text.
     reveal: Option<RevealAt>,
     link_click_handler: Option<Arc<LinkClickHandlerFn>>,
@@ -702,6 +706,8 @@ impl Inline {
             selection_bounds: None,
             selection_source: None,
             range_backgrounds: Vec::new(),
+            line_backgrounds: Vec::new(),
+            line_bleed: px(0.),
             reveal: None,
             link_click_handler,
             retained_key: None,
@@ -748,6 +754,18 @@ impl Inline {
     /// runs, so changing them does not shape the text again.
     pub(super) fn range_backgrounds(mut self, backgrounds: Vec<(Range<usize>, Hsla)>) -> Self {
         self.range_backgrounds = backgrounds;
+        self
+    }
+
+    /// Braydr: fill the rows of each range edge to edge, `bleed` past the
+    /// text on both sides.
+    pub(super) fn line_backgrounds(
+        mut self,
+        backgrounds: Vec<(Range<usize>, Hsla)>,
+        bleed: Pixels,
+    ) -> Self {
+        self.line_backgrounds = backgrounds;
+        self.line_bleed = bleed;
         self
     }
 
@@ -1078,6 +1096,39 @@ impl Inline {
         }
     }
 
+    /// Braydr: paint each row a line background touches across the full width.
+    fn paint_line_backgrounds(&self, text_layout: &TextLayout, window: &mut Window) {
+        let glyphs = glyph_boxes(
+            text_layout,
+            window.text_style().text_align,
+            text_layout.bounds().size.width,
+        );
+        let bounds = text_layout.bounds();
+        let line_height = text_layout.line_height();
+        for (range, color) in &self.line_backgrounds {
+            let mut rows = range_boxes(&glyphs, range.clone())
+                .into_iter()
+                .map(|(row, _, _)| row)
+                .collect::<Vec<_>>();
+            rows.dedup();
+            for row in rows {
+                window.paint_quad(gpui::fill(
+                    Bounds::from_corners(
+                        point(
+                            bounds.left() - self.line_bleed,
+                            bounds.top() + line_height * row as f32,
+                        ),
+                        point(
+                            bounds.right() + self.line_bleed,
+                            bounds.top() + line_height * (row + 1) as f32,
+                        ),
+                    ),
+                    *color,
+                ));
+            }
+        }
+    }
+
     /// Paint each range highlight behind the text of its range.
     fn paint_range_highlights(&self, text_layout: &TextLayout, window: &mut Window) {
         let glyphs = glyph_boxes(
@@ -1210,6 +1261,9 @@ impl Element for Inline {
             return;
         }
         let text_layout = self.styled_text.layout().clone();
+        if !self.line_backgrounds.is_empty() {
+            self.paint_line_backgrounds(&text_layout, window);
+        }
         if !self.range_backgrounds.is_empty() {
             self.paint_range_highlights(&text_layout, window);
         }

@@ -1314,3 +1314,16 @@ fn the_drawer_opens_over_a_thread_covering_the_main_sheet(cx: &mut TestAppContex
     view.read_with(cx, |this, _| assert!(this.drawer_open));
     assert!(cx.debug_bounds("channel-row-1").is_some());
 }
+
+#[test]
+fn diff_lines_have_their_own_colors() {
+    let syntax: gpui_kit::component::highlighter::HighlightTheme =
+        serde_json::from_str(crate::theme::SYNTAX).expect("the code colors parse");
+    let style = |name: &str| syntax.style.syntax.style(name).expect("a diff style");
+    let plus = style("diff.plus");
+    assert_eq!(plus.color, Some(gpui_kit::rgb(0x116329).into()));
+    assert_eq!(plus.background_color, Some(gpui_kit::rgb(0xDAFBE1).into()));
+    let minus = style("diff.minus");
+    assert_eq!(minus.color, Some(gpui_kit::rgb(0x82071E).into()));
+    assert_eq!(minus.background_color, Some(gpui_kit::rgb(0xFFEBE9).into()));
+}
