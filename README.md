@@ -77,7 +77,7 @@ BRAYDR_DATA_DIR=/tmp/b BRAYDR_SCREENSHOT=/tmp/shot.png BRAYDR_SCREENSHOT_STATE=s
 この画像に信号機は写らない。写すには、`BRAYDR_SCREENSHOT_WAIT` で秒数を延ばして開いている間に、
 `screencapture -l <ウィンドウ ID>` で撮る。
 
-`BRAYDR_SCREENSHOT_STATE` は `thread` `unresolved` `unread` `search` `menu` `rename` `session` `create`
+`BRAYDR_SCREENSHOT_STATE` は `thread` `unresolved` `unread` `search` `menu` `link` `rename` `session` `create`
 `collapsed` `settings` `draft` `copied` `flash` `resize` のどれか。
 
 ## ライセンス

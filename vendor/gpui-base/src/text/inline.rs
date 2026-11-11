@@ -1475,6 +1475,7 @@ impl Element for Inline {
                 let hitbox = hitbox.clone();
                 let text_view_state = GlobalState::global(cx).text_view_state();
                 let link_click_handler = self.link_click_handler.clone();
+                let text = self.text.clone();
 
                 move |event: &MouseUpEvent, phase, window, cx| {
                     if !phase.bubble() || !hitbox.is_hovered(window) {
@@ -1502,7 +1503,16 @@ impl Element for Inline {
                             },
                             up: event.clone(),
                         });
+                        let link_text = Self::link_range_for_position(
+                            &text_layout,
+                            &links,
+                            event.position,
+                        )
+                        .and_then(|range| text.get(range))
+                        .map(|text| SharedString::from(text.to_owned()));
+                        GlobalState::global(cx).set_clicked_link_text(link_text);
                         handle_link_click(&link_click_handler, link.url, click, window, cx);
+                        GlobalState::global(cx).set_clicked_link_text(None);
                     }
                 }
             });

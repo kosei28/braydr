@@ -13,8 +13,8 @@ use gpui_kit::component::input::{self, Input, InputEvent, InputState, TextareaSt
 use gpui_kit::component::text::TextView;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClipboardItem, Context,
-    CursorStyle, DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight,
+    Animation, AnimationExt as _, AnyElement, App, AppContext as _, ClickEvent, ClipboardItem,
+    Context, CursorStyle, DispatchPhase, Div, Entity, FocusHandle, Focusable as _, FontWeight,
     InteractiveElement as _, IntoElement, MouseButton, MouseDownEvent, MouseMoveEvent,
     MouseUpEvent, ParentElement as _, Render, ScrollHandle, SharedString,
     StatefulInteractiveElement as _, Styled as _, SystemNotification, Transformation, WeakEntity,
@@ -1165,7 +1165,8 @@ impl Workspace {
                 .text_color(theme::ink())
                 .child(
                     TextView::markdown(markdown_id, message.text.clone())
-                        .code_block_actions(code_copy(cx.weak_entity(), &copy_scope)),
+                        .code_block_actions(code_copy(cx.weak_entity(), &copy_scope))
+                        .on_link_click(link_click(cx.weak_entity())),
                 )
                 .into_any_element(),
         };
@@ -1926,6 +1927,14 @@ impl Workspace {
                     "unresolved" => this.open_unresolved(window, cx),
                     "unread" => this.open_unread(window, cx),
                     "menu" => this.open_menu(window, cx),
+                    // Where a link would sit in the first agent message of the seed.
+                    "link" => this.open_link_menu(
+                        "https://ci.example/runs/1".into(),
+                        Some("CI の実行ログ".into()),
+                        gpui_kit::point(px(720.), px(390.)),
+                        window,
+                        cx,
+                    ),
                     "rename" => this.open_rename(window, cx),
                     "session" => this.open_session_dialog(window, cx),
                     "create" => {
@@ -2320,4 +2329,32 @@ fn open_bracket() -> gpui_kit::Canvas<()> {
             }
         },
     )
+}
+
+/// Opens a link as the text view would, and offers to copy it on a right click.
+fn link_click(
+    workspace: WeakEntity<Workspace>,
+) -> impl Fn(&SharedString, &ClickEvent, &mut Window, &mut App) + std::marker::Send + Sync + 'static
+{
+    move |url, event, window, cx| {
+        if event.is_right_click() {
+            let text = gpui_kit::base::GlobalState::clicked_link_text(cx);
+            let at = event.position();
+            let _ = workspace.update(cx, |this, cx| {
+                this.open_link_menu(url.to_string(), text.map(|t| t.to_string()), at, window, cx);
+            });
+            return;
+        }
+        // What the text view does without a handler.
+        let opens = match event {
+            ClickEvent::Mouse(click) => {
+                matches!(click.up.button, MouseButton::Left | MouseButton::Middle)
+            }
+            ClickEvent::Keyboard(_) => true,
+            ClickEvent::Touch(click) => !click.long_press,
+        };
+        if opens {
+            cx.open_url(url);
+        }
+    }
 }

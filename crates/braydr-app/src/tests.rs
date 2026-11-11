@@ -1339,3 +1339,43 @@ fn diff_lines_have_their_own_colors() {
     assert_eq!(minus.color, Some(gpui_kit::rgb(0x82071E).into()));
     assert_eq!(minus.background_color, Some(gpui_kit::rgb(0xFFEBE9).into()));
 }
+
+#[gpui_kit::test]
+fn a_right_click_on_a_link_offers_its_address_and_text(cx: &mut TestAppContext) {
+    let rt = runtime();
+    let channel = rt
+        .store()
+        .create_channel("c", &launch())
+        .unwrap()
+        .channel_id;
+    rt.store()
+        .agent_post_main(&channel, "[リンク](https://a.example/) の説明", false, None)
+        .unwrap();
+    let (_, cx) = open(cx, &rt);
+    settle(cx);
+    let agent = cx.debug_bounds("agent-body").unwrap();
+    let link = point(agent.left() + px(10.), agent.top() + px(8.));
+    let none = Modifiers::none();
+    let copied = |item: &'static str, cx: &mut VisualTestContext| {
+        cx.simulate_mouse_move(link, None, none);
+        cx.simulate_mouse_down(link, MouseButton::Right, none);
+        cx.simulate_mouse_up(link, MouseButton::Right, none);
+        cx.run_until_parked();
+        assert_eq!(cx.opened_url(), None);
+        let menu = cx.debug_bounds("link-menu").expect("the menu opens");
+        // Where the pointer was, so the menu reads as belonging to the link.
+        assert_eq!((menu.left(), menu.top()), (link.x, link.y));
+        let entry = cx.debug_bounds(item).unwrap();
+        cx.simulate_click(entry.center(), none);
+        cx.run_until_parked();
+        assert!(cx.debug_bounds("link-menu").is_none(), "choosing closes it");
+        cx.read_from_clipboard().and_then(|item| item.text())
+    };
+    assert_eq!(
+        copied("link-menu-copy-link", cx).as_deref(),
+        Some("https://a.example/")
+    );
+    assert_eq!(copied("link-menu-copy-text", cx).as_deref(), Some("リンク"));
+    cx.simulate_click(link, none);
+    assert_eq!(cx.opened_url().as_deref(), Some("https://a.example/"));
+}

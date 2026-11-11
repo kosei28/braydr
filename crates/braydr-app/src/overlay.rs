@@ -6,9 +6,10 @@ use braydr_runtime::SessionState;
 use braydr_store::UnreadItem;
 use gpui_kit::component::input::{Input, InputEvent, InputState, TextareaState};
 use gpui_kit::{
-    AnyElement, AppContext as _, Context, Div, Entity, FontWeight, HighlightStyle,
-    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, ScrollHandle,
-    StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Window, div, px,
+    AnyElement, AppContext as _, ClipboardItem, Context, Div, Entity, FontWeight, HighlightStyle,
+    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, Pixels, Point,
+    ScrollHandle, StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Window,
+    div, px,
 };
 
 use crate::timeline::OwnedScope;
@@ -139,8 +140,17 @@ pub struct SessionDialog {
     error: Option<String>,
 }
 
+/// The menu a right click on a link opens, where the pointer was.
+pub struct LinkMenu {
+    url: String,
+    /// `None` for a link without words, such as an image.
+    text: Option<String>,
+    at: Point<Pixels>,
+}
+
 pub enum Overlay {
     Menu,
+    LinkMenu(LinkMenu),
     Unresolved(UnresolvedPanel),
     Unread(UnreadPanel),
     Search(SearchPanel),
@@ -193,6 +203,19 @@ impl Workspace {
     pub fn open_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.release_focus(window, cx);
         self.overlay = Some(Overlay::Menu);
+        cx.notify();
+    }
+
+    pub fn open_link_menu(
+        &mut self,
+        url: String,
+        text: Option<String>,
+        at: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.release_focus(window, cx);
+        self.overlay = Some(Overlay::LinkMenu(LinkMenu { url, text, at }));
         cx.notify();
     }
 
@@ -511,6 +534,7 @@ impl Workspace {
         let overlay = self.overlay.as_ref()?;
         let content = match overlay {
             Overlay::Menu => self.render_menu(cx),
+            Overlay::LinkMenu(menu) => self.render_link_menu(menu, cx),
             Overlay::Unresolved(panel) => self.render_unresolved(panel, cx),
             Overlay::Unread(panel) => self.render_unread(panel, cx),
             Overlay::Search(panel) => self.render_search(panel, cx),
@@ -670,6 +694,66 @@ impl Workspace {
                     theme::warn(),
                 )
                 .on_click(cx.listener(|this, _, _, cx| this.open_delete(cx))),
+            )
+            .into_any_element()
+    }
+
+    fn render_link_menu(&self, menu: &LinkMenu, cx: &mut Context<Self>) -> AnyElement {
+        const WIDTH: f32 = 200.;
+        const ITEM: f32 = 32.;
+        let item = |id: &'static str, icon: &'static str, label: &'static str, copied: String| {
+            div()
+                .id(id)
+                .debug_selector(move || id.into())
+                .h(px(ITEM))
+                .px(px(10.))
+                .flex()
+                .items_center()
+                .gap(px(8.))
+                .rounded(px(7.))
+                .cursor_pointer()
+                .hover(|style| style.bg(theme::tint()))
+                .text_size(px(13.))
+                .text_color(theme::ink())
+                .child(ui::icon(icon, 14., theme::ink2()))
+                .child(label)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.write_to_clipboard(ClipboardItem::new_string(copied.clone()));
+                    this.close_overlay(window, cx);
+                }))
+        };
+        let items = 1 + usize::from(menu.text.is_some());
+        // The padding and the 1px border on both sides.
+        let height = items as f32 * ITEM + 2. * 4. + 2.;
+        let x = f32::from(menu.at.x);
+        let y = f32::from(menu.at.y);
+        let (left, width) = self.fit_x(x, WIDTH);
+        // Below the pointer, or above it when the window ends first.
+        let top = if y + height > self.window_height - INSET {
+            (y - height).max(INSET)
+        } else {
+            y
+        };
+        ui::floating(10.)
+            .absolute()
+            .top(px(top))
+            .left(px(left))
+            .w(px(width))
+            .p(px(4.))
+            .flex()
+            .flex_col()
+            .occlude()
+            .debug_selector(|| "link-menu".into())
+            .child(item(
+                "link-menu-copy-link",
+                "link",
+                "リンクをコピー",
+                menu.url.clone(),
+            ))
+            .children(
+                menu.text
+                    .clone()
+                    .map(|text| item("link-menu-copy-text", "type", "テキストをコピー", text)),
             )
             .into_any_element()
     }

@@ -7,7 +7,7 @@ use std::{
 #[cfg(target_family = "wasm")]
 use web_time::Instant;
 
-use gpui::{App, Bounds, Entity, Global, OwnedMenu, Pixels, Point};
+use gpui::{App, Bounds, Entity, Global, OwnedMenu, Pixels, Point, SharedString};
 
 use crate::text::TextViewState;
 
@@ -32,6 +32,9 @@ pub struct GlobalState {
     /// When a finger last went down. A tap reaches controls as a mouse press;
     /// this is how they tell it from one.
     last_touch: Option<Instant>,
+    /// The text of the link whose click is being handled, for link handlers,
+    /// which receive only the URL.
+    clicked_link_text: RefCell<Option<SharedString>>,
 }
 
 impl Global for GlobalState {}
@@ -45,6 +48,7 @@ impl GlobalState {
             text_view_state_stack: RefCell::new(Vec::new()),
             table_cell_stack: RefCell::new(Vec::new()),
             last_touch: None,
+            clicked_link_text: RefCell::new(None),
         }
     }
 
@@ -98,6 +102,18 @@ impl GlobalState {
 
     pub fn global_mut(cx: &mut App) -> &mut Self {
         cx.global_mut::<Self>()
+    }
+
+    /// The text of the link whose click handler is running: what the link
+    /// reads as, where the handler is given its URL. `None` outside a
+    /// handler, and for links that are not text, such as images.
+    pub fn clicked_link_text(cx: &App) -> Option<SharedString> {
+        cx.try_global::<Self>()
+            .and_then(|state| state.clicked_link_text.borrow().clone())
+    }
+
+    pub(crate) fn set_clicked_link_text(&self, text: Option<SharedString>) {
+        *self.clicked_link_text.borrow_mut() = text;
     }
 
     pub(crate) fn text_view_state(&self) -> Option<Entity<TextViewState>> {
