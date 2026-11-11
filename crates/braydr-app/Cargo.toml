@@ -15,9 +15,14 @@ braydr-herdr = { path = "../braydr-herdr" }
 braydr-ipc = { path = "../braydr-ipc" }
 braydr-runtime = { path = "../braydr-runtime" }
 braydr-store = { path = "../braydr-store" }
+block2 = "0.6"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+futures = "0.3"
 gpui-kit = { version = "=0.8.1", features = ["syntect"] }
 image = { version = "0.25", default-features = false, features = ["png"], optional = true }
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSWindow", "block2", "std"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["NSString", "NSURL", "std"] }
 serde_json = "1"
 tracing = "0.1"
 

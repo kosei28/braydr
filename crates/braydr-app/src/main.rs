@@ -1,3 +1,4 @@
+mod folder_panel;
 mod overlay;
 mod pane_widths;
 mod settings;

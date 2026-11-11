@@ -7,9 +7,8 @@ use braydr_store::UnreadItem;
 use gpui_kit::component::input::{Input, InputEvent, InputState, TextareaState};
 use gpui_kit::{
     AnyElement, AppContext as _, Context, Div, Entity, FontWeight, HighlightStyle,
-    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, PathPromptOptions,
-    ScrollHandle, StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Window,
-    div, px,
+    InteractiveElement as _, IntoElement, MouseButton, ParentElement as _, ScrollHandle,
+    StatefulInteractiveElement as _, Styled as _, StyledText, Subscription, Window, div, px,
 };
 
 use crate::timeline::OwnedScope;
@@ -165,16 +164,16 @@ pub fn tilde(path: &str) -> String {
 
 impl Workspace {
     pub fn pick_directory(&mut self, cx: &mut Context<Self>) {
-        let paths = cx.prompt_for_paths(PathPromptOptions {
-            files: false,
-            directories: true,
-            multiple: false,
-            prompt: None,
-        });
+        let current = if let Some(Overlay::Session(dialog)) = &self.overlay {
+            &dialog.fields.cwd
+        } else if let Some(form) = &self.create {
+            &form.fields.cwd
+        } else {
+            return;
+        };
+        let chosen = crate::folder_panel::choose_directory(std::path::Path::new(current));
         cx.spawn(async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = paths.await
-                && let Some(path) = paths.into_iter().next()
-            {
+            if let Ok(Some(path)) = chosen.await {
                 let _ = this.update(cx, |this, cx| {
                     let cwd = path.display().to_string();
                     if let Some(Overlay::Session(dialog)) = &mut this.overlay {
