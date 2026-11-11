@@ -967,16 +967,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "mgFSs",
+                              "type": "path",
+                              "id": "g04hO",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -3117,16 +3126,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "sS6UA",
+                              "type": "path",
+                              "id": "jBpdr",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 54
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 37.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                54
+                              ],
+                              "width": 6,
+                              "height": 54,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -4310,16 +4328,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "cOJPY",
+                              "type": "path",
+                              "id": "GuHxC",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 54
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 37.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                54
+                              ],
+                              "width": 6,
+                              "height": 54,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -6050,16 +6077,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "B03SML",
+                              "type": "path",
+                              "id": "cathG",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 54
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 37.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                54
+                              ],
+                              "width": 6,
+                              "height": 54,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -10648,16 +10684,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "eMKzy",
+                              "type": "path",
+                              "id": "A97e7",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -13088,16 +13133,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "amK6a",
+                              "type": "path",
+                              "id": "L9CouU",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -16430,16 +16484,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "S4ryow",
+                              "type": "path",
+                              "id": "d9avW",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -18667,16 +18730,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "bZ0Wd",
+                              "type": "path",
+                              "id": "asvRg",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -20851,16 +20923,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "GL11a",
+                              "type": "path",
+                              "id": "cWwsW",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -23058,16 +23139,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "yaXVU",
+                              "type": "path",
+                              "id": "lt8mA",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -27577,16 +27667,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "ECtVo",
+                              "type": "path",
+                              "id": "o15zus",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",
@@ -30925,16 +31024,25 @@
                           "gap": 5,
                           "children": [
                             {
-                              "type": "rectangle",
-                              "cornerRadius": 1,
-                              "id": "q44m3w",
+                              "type": "path",
+                              "id": "IAndU",
                               "layoutPosition": "absolute",
                               "x": -10,
                               "y": 0,
                               "name": "Open Bar",
-                              "fill": "$accent",
-                              "width": 2,
-                              "height": 71
+                              "geometry": "M6 1l-3.5 3.5q-1.5 1.5-1.5 3.6l0 54.8q0 2.1 1.5 3.6l3.5 3.5",
+                              "viewBox": [
+                                0,
+                                0,
+                                6,
+                                71
+                              ],
+                              "width": 6,
+                              "height": 71,
+                              "stroke": "$accent",
+                              "strokeWidth": 2,
+                              "strokeLinejoin": "round",
+                              "strokeLinecap": "round"
                             },
                             {
                               "type": "frame",

@@ -34,6 +34,8 @@ const NOTIFICATION_CHARS: usize = 120;
 /// the text stays on the same axis as the rest of the sheet.
 const MESSAGE_INSET_X: f32 = 10.;
 const MESSAGE_INSET_Y: f32 = 7.;
+/// How far the open thread's bracket reaches right, along its slanted ends.
+const OPEN_BRACKET_WIDTH: f32 = 6.;
 const COPIED_FOR: Duration = Duration::from_millis(1500);
 /// Both sheets center their content in a column no wider than this.
 const COLUMN_MAX: f32 = 720.;
@@ -1277,14 +1279,12 @@ impl Workspace {
             .items_start()
             .gap(px(5.))
             .children(open.then(|| {
-                div()
+                open_bracket()
                     .absolute()
                     .left_0()
                     .top(px(MESSAGE_INSET_Y))
                     .bottom(px(MESSAGE_INSET_Y))
-                    .w(px(2.))
-                    .rounded(px(1.))
-                    .bg(theme::accent())
+                    .w(px(OPEN_BRACKET_WIDTH))
             }))
             .child(body)
             .child(footer);
@@ -2283,5 +2283,41 @@ fn user_text(id: SharedString, text: &str, cx: &App) -> BaseTextView {
             .with_border(gpui_kit::transparent_black())
             .with_selection(theme::user_selection().into())
             .with_code_block(block),
+    )
+}
+
+/// The bracket beside the parent of the open thread: a stroke down the left whose ends slant
+/// right at 45 degrees, rounded where they bend and at their tips.
+fn open_bracket() -> gpui_kit::Canvas<()> {
+    canvas(
+        |_, _, _| {},
+        |bounds, _, window, _| {
+            const STROKE: f32 = 2.;
+            let half = STROKE / 2.;
+            let (w, h) = (OPEN_BRACKET_WIDTH, bounds.size.height.as_f32());
+            let at = |x: f32, y: f32| bounds.origin + gpui_kit::point(px(x), px(y));
+            // The slant meets the stem at (half, w): the curve starts back along the slant and
+            // ends down the stem by the same length, so it leaves and joins both tangentially.
+            let bend = 1.5;
+            let along = bend * std::f32::consts::SQRT_2;
+            let mut path = gpui_kit::PathBuilder::stroke(px(STROKE));
+            path.move_to(at(w, half));
+            path.line_to(at(half + bend, w - bend));
+            path.curve_to(at(half, w + along), at(half, w));
+            path.line_to(at(half, h - w - along));
+            path.curve_to(at(half + bend, h - w + bend), at(half, h - w));
+            path.line_to(at(w, h - half));
+            if let Ok(path) = path.build() {
+                window.paint_path(path, theme::accent());
+            }
+            // The stroke ends square; a dot on each tip rounds it.
+            for y in [half, h - half] {
+                let tip = gpui_kit::Bounds::new(
+                    at(w - half, y - half),
+                    gpui_kit::size(px(STROKE), px(STROKE)),
+                );
+                window.paint_quad(gpui_kit::fill(tip, theme::accent()).corner_radii(px(half)));
+            }
+        },
     )
 }
